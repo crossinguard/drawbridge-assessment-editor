@@ -130,8 +130,20 @@ settled value at init instead of reaching for an effect at all.
 **`structuredClone` on a raw `$state` proxy throws.** Snapshot first:
 `structuredClone($state.snapshot(draft))`.
 
-**Never put literal control characters in source.** Write the escape. A file containing raw
-control bytes reads as binary to `grep` and most other tools.
+**Never put literal control characters in source.** Write the escape — and be careful,
+because tools that generate code are exactly how one gets in. This has already happened once
+here, in a template literal meant to hold a separator.
+
+The failure is nasty because nothing complains: the file still compiles and every test still
+passes. What breaks is the toolchain around it — `file` reports the source as `data` instead
+of text, and **`grep` silently matches nothing in it**, so a search for the very symbol you
+are chasing comes back empty. Diagnose with `file src/...` when a grep result looks
+impossibly wrong.
+
+`src/lib/architecture.test.ts` guards against this across `src/lib` and `src/routes`. If you
+need to write a character class for control characters, build it with `String.raw` and
+`\uXXXX` escapes, and verify the stored bytes afterwards rather than trusting what you
+typed.
 
 ## Testing
 

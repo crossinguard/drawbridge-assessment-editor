@@ -81,6 +81,30 @@ describe('src/lib dependency direction', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('no source file contains a raw control character', () => {
+    /*
+      A stray NUL or other control byte makes `file` report the source as binary and
+      makes grep skip it entirely — the file still compiles and every other test still
+      passes, so nothing surfaces it. This has already happened once, in a template
+      literal that was meant to hold a separator.
+
+      Tab, newline and carriage return are the legitimate ones.
+    */
+    const offenders = sourceFilesUnder(libDir)
+      .concat(sourceFilesUnder(join(libDir, '..', 'routes')))
+      .flatMap((file) => {
+        const text = readFileSync(file, 'utf8');
+        // Written as escapes, necessarily — a literal class here would be the bug.
+        const match = new RegExp(String.raw`[\u0000-\u0008\u000b\u000c\u000e-\u001f]`).exec(text);
+        if (!match) return [];
+        const line = text.slice(0, match.index).split('\n').length;
+        const code = match[0].codePointAt(0)?.toString(16).padStart(4, '0');
+        return [`${relative(libDir, file)}:${line} contains U+${code}`];
+      });
+
+    expect(offenders).toEqual([]);
+  });
+
   it('export/ depends on domain only, never on storage', () => {
     const violations = check(
       'export',
