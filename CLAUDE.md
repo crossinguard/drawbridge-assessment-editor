@@ -100,7 +100,29 @@ from `repo/`, `stores/`, or anything Svelte.** This single rule is what keeps th
 testable, and the model is the most expensive thing to get wrong.
 
 `src/lib/domain/schema.ts` is the contract: import validation, defaults and TypeScript types
-all come from there via `z.infer`. Do not declare a domain type by hand anywhere else.
+all come from there via `z.infer`. Do not declare a domain type by hand anywhere else. The
+one exception is `Item`, which cannot be inferred — TypeScript will not infer a schema that
+appears in its own initialiser — and is declared beside its schema with the reason recorded.
+
+### Repository invariants
+
+**`put` writes verbatim; `update` stamps `updatedAt`.** Import depends on the first: a
+restored bundle whose timestamps had been rewritten would no longer match what was exported,
+and "restore a backup" would stop being a faithful operation. Use `update` for editing.
+
+**A `group` item's parts are not rows.** They live in the parent's `parts` array, so the
+`items` table holds top-level items only and `items.get()` cannot find a part by id. This
+keeps a group's ordering in exactly one place — parts as sibling rows would let row order and
+array order disagree, and one of them would always be silently wrong.
+
+**Export must never be able to fail.** It is the data-rescue path. Do not put validation, or
+anything else that can throw on unexpected input, in front of `exportVault`. (A consequence:
+JSON key order in a bundle depends on whether a record was created here or came in through an
+import, since Zod reconstructs objects in schema order. That is cosmetic — JSON key order
+carries no meaning — and is not worth trading the guarantee above to fix.)
+
+**Deleting cascades.** Removing a collection removes its items; `deleteVault` removes
+everything beneath it. Anything that adds a new owned entity has to extend both.
 
 ## Stack notes and traps
 

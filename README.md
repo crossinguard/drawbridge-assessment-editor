@@ -37,9 +37,13 @@ Under construction, following the staged build order in
 [drawbridge-redux-plan.md](drawbridge-redux-plan.md).
 
 - [x] Stage 0 — scaffold, theming, PWA, deploy config
-- [ ] Stage 1 — domain model
-- [ ] Stage 2 — repository
-- [ ] Stages 3–12 — see the brief
+- [x] Stage 1 — domain model, points, coverage, validation
+- [x] Stage 2 — repository port and IndexedDB adapter
+- [ ] Stage 3 — vaults and settings (next)
+- [ ] Stages 4–12 — see the brief
+
+There is no user interface yet beyond a placeholder. The model and storage underneath it are
+complete and tested.
 
 Architecture notes and the invariants that matter are in [CLAUDE.md](CLAUDE.md).
 
