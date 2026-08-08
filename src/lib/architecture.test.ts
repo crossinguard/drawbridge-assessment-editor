@@ -1,0 +1,95 @@
+import { describe, expect, it } from 'vitest';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/*
+  The dependency direction in src/lib is the one rule that keeps this codebase
+  testable, and it is the kind of rule that erodes one convenient import at a time.
+  A reviewer will not notice `import { db } from '../repo/dexie'` inside a domain
+  file; this test will.
+
+  It reads source text rather than building a module graph on purpose — no build
+  step, no cycles to resolve, and it still runs in the `node` environment alongside
+  the domain tests.
+*/
+
+const libDir = fileURLToPath(new URL('.', import.meta.url));
+
+function sourceFilesUnder(dir: string): string[] {
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    // The directory does not exist yet — the rule holds vacuously.
+    return [];
+  }
+
+  return entries.flatMap((entry) => {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) return sourceFilesUnder(full);
+    return full.endsWith('.ts') || full.endsWith('.svelte') ? [full] : [];
+  });
+}
+
+/** Every module specifier in a file, from static imports, re-exports and dynamic import(). */
+function importsIn(file: string): string[] {
+  const text = readFileSync(file, 'utf8');
+  const specifiers: string[] = [];
+  const pattern = /(?:\bfrom\s*|\bimport\s*\(\s*)['"]([^'"]+)['"]/g;
+
+  for (const match of text.matchAll(pattern)) {
+    const specifier = match[1];
+    if (specifier !== undefined) specifiers.push(specifier);
+  }
+  return specifiers;
+}
+
+function check(dir: string, forbidden: (specifier: string) => boolean): string[] {
+  return sourceFilesUnder(join(libDir, dir)).flatMap((file) =>
+    importsIn(file)
+      .filter(forbidden)
+      .map((specifier) => `${relative(libDir, file)} imports "${specifier}"`)
+  );
+}
+
+describe('src/lib dependency direction', () => {
+  it('domain/ imports nothing from repo/, stores/, components/ or Svelte', () => {
+    const violations = check(
+      'domain',
+      (specifier) =>
+        /(^|\/)(repo|stores|components)(\/|$)/.test(specifier) ||
+        specifier === 'svelte' ||
+        specifier.startsWith('svelte/') ||
+        specifier.startsWith('$app/') ||
+        specifier.startsWith('$lib/repo') ||
+        specifier.startsWith('$lib/stores')
+    );
+
+    // domain/ is the model. It must stay pure and DOM-free so it can be tested
+    // headlessly, and so a Tauri build can reuse it untouched.
+    expect(violations).toEqual([]);
+  });
+
+  it('only repo/ knows that IndexedDB exists', () => {
+    const offenders = ['domain', 'export', 'stores', 'components'].flatMap((dir) =>
+      check(dir, (specifier) => specifier === 'dexie' || specifier.startsWith('dexie/'))
+    );
+
+    // Swapping DexieRepository for a filesystem adapter on the desktop build must
+    // not touch anything above repo/.
+    expect(offenders).toEqual([]);
+  });
+
+  it('export/ depends on domain only, never on storage', () => {
+    const violations = check(
+      'export',
+      (specifier) =>
+        /(^|\/)(repo|stores|components)(\/|$)/.test(specifier) ||
+        specifier.startsWith('$lib/repo') ||
+        specifier.startsWith('$lib/stores')
+    );
+
+    expect(violations).toEqual([]);
+  });
+});

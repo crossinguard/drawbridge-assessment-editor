@@ -1,0 +1,80 @@
+@import 'tailwindcss';
+
+/*
+  Theming rule for this project: one `data-theme` attribute on <html> restyles the
+  entire tree. Tailwind's `dark:` variant is deliberately NOT used.
+
+  The reason is that `dark:` only reaches elements Tailwind generated classes for.
+  Anything rendered outside that — a future embedded Markdown editor, third-party
+  widget, print stylesheet — would need a parallel theming path and would drift.
+  Plain CSS custom properties cascade into all of it for free.
+
+  The mechanism: raw palette values are declared per-theme below as `--db-*`, and
+  `@theme inline` maps them onto Tailwind's token names. `inline` matters — without
+  it Tailwind resolves the var() at build time and the utilities freeze to whatever
+  the light theme happened to be. With it, `bg-surface` emits
+  `background-color: var(--db-surface)` and follows the attribute at runtime.
+*/
+
+:root,
+:root[data-theme='light'] {
+  --db-canvas: oklch(98.5% 0.004 250);
+  --db-surface: oklch(100% 0 0);
+  --db-surface-raised: oklch(96.8% 0.005 250);
+  --db-border: oklch(90% 0.008 250);
+  --db-border-strong: oklch(80% 0.012 250);
+  --db-text: oklch(24% 0.02 250);
+  --db-text-muted: oklch(52% 0.018 250);
+  --db-accent: oklch(48% 0.11 250);
+  --db-accent-text: oklch(99% 0 0);
+  --db-danger: oklch(52% 0.19 25);
+  --db-warning: oklch(62% 0.14 75);
+  --db-success: oklch(52% 0.12 155);
+}
+
+:root[data-theme='dark'] {
+  --db-canvas: oklch(19% 0.012 250);
+  --db-surface: oklch(23% 0.014 250);
+  --db-surface-raised: oklch(27% 0.016 250);
+  --db-border: oklch(33% 0.018 250);
+  --db-border-strong: oklch(45% 0.022 250);
+  --db-text: oklch(94% 0.006 250);
+  --db-text-muted: oklch(70% 0.015 250);
+  --db-accent: oklch(72% 0.11 250);
+  --db-accent-text: oklch(17% 0.02 250);
+  --db-danger: oklch(70% 0.16 25);
+  --db-warning: oklch(78% 0.13 75);
+  --db-success: oklch(72% 0.13 155);
+}
+
+@theme inline {
+  --color-canvas: var(--db-canvas);
+  --color-surface: var(--db-surface);
+  --color-surface-raised: var(--db-surface-raised);
+  --color-border-subtle: var(--db-border);
+  --color-border-strong: var(--db-border-strong);
+  --color-text: var(--db-text);
+  --color-text-muted: var(--db-text-muted);
+  --color-accent: var(--db-accent);
+  --color-accent-text: var(--db-accent-text);
+  --color-danger: var(--db-danger);
+  --color-warning: var(--db-warning);
+  --color-success: var(--db-success);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+}
+
+html {
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--db-canvas);
+  color: var(--db-text);
+  font-family: var(--font-sans);
+}

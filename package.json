@@ -1,0 +1,36 @@
+{
+  "name": "drawbridge",
+  "version": "0.1.0",
+  "description": "A local-first web app for authoring and managing course assessments.",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.11.0",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/kit": "^2.70.2",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vite-pwa/sveltekit": "^1.1.0",
+    "fake-indexeddb": "^6.2.5",
+    "svelte": "^5.56.8",
+    "svelte-check": "^4.7.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.1",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10",
+    "workbox-window": "^7.4.1"
+  },
+  "dependencies": {
+    "dexie": "^4.4.4",
+    "zod": "^4.4.3"
+  }
+}

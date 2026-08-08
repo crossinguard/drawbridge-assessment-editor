@@ -1,0 +1,24 @@
+[build]
+  command = "pnpm build"
+  publish = "build"
+
+# The service worker must never be served from a long-lived cache, or an install
+# gets pinned to a stale shell and stops picking up new builds. Learned the hard
+# way on a predecessor.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+
+# SPA fallback for routes that cannot be prerendered (anything under /v, whose ids
+# live in IndexedDB). 200.html is the adapter's fallback page — see svelte.config.js.
+# Netlify matches static files first, so prerendered routes are still served directly.
+[[redirects]]
+  from = "/*"
+  to = "/200.html"
+  status = 200
