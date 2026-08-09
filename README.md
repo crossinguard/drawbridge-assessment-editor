@@ -41,11 +41,19 @@ Under construction, following the staged build order in
 - [x] Stage 2 — repository port and IndexedDB adapter
 - [x] Stage 3 — vaults, and the settings screen for vocabularies and custom fields
 - [x] Stage 4 — the outcome tree
-- [ ] Stage 5 — collections and selected-response items (next)
-- [ ] Stages 6–12 — see the brief
+- [x] Stage 5 — collections and selected-response items
+- [ ] Stage 6 — export and import (next, and the one that gets your work out)
+- [ ] Stages 7–12 — see the brief
 
-You can create courses, configure them, and build an outcome hierarchy of any depth.
-Collections, items and rubrics arrive next.
+You can create courses, configure them, build an outcome hierarchy, and author
+choice / multiple-response / true-false / short-answer items with keys, per-option
+feedback, points, rationale, outcome alignment, status and sections.
+
+**There is still no way to get your work out of the browser.** That is Stage 6, and it is
+next for exactly that reason.
+
+Not built yet, both listed in the brief's UI expectations: undo/redo across structured
+edits, and the Ctrl/Cmd+K command palette.
 
 Architecture notes and the invariants that matter are in [CLAUDE.md](CLAUDE.md).
 

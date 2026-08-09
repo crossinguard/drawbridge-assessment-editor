@@ -92,7 +92,7 @@
     <SaveIndicator saver={outcomes.saver} />
   </header>
 
-  <ProblemsPanel {issues} labelFor={(issue) => codeById.get(issue.entityId)} />
+  <ProblemsPanel {issues} subject="this tree" labelFor={(issue) => codeById.get(issue.entityId)} />
 
   {#if outcomes.status === 'loading'}
     <p class="text-sm text-text-muted">Loading…</p>

@@ -3,11 +3,13 @@
 
   interface Props {
     issues: Issue[];
+    /** What the panel is reporting on, e.g. "this tree", "this collection". */
+    subject?: string;
     /** Optional resolver so a row can be named rather than shown as a bare id. */
     labelFor?: (issue: Issue) => string | undefined;
   }
 
-  let { issues, labelFor }: Props = $props();
+  let { issues, subject = 'this vault', labelFor }: Props = $props();
 
   const counts = $derived(countBySeverity(issues));
   const sorted = $derived(sortIssues(issues));
@@ -30,7 +32,7 @@
       aria-expanded={open}
     >
       <span class="flex items-center gap-3 text-sm">
-        <span class="font-medium text-text">Notes on this tree</span>
+        <span class="font-medium text-text">Notes on {subject}</span>
         <span class="flex items-center gap-2 text-xs text-text-muted">
           {#if counts.error}<span class="text-danger">{counts.error} to fix</span>{/if}
           {#if counts.warning}<span class="text-warning">{counts.warning} to check</span>{/if}

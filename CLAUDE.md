@@ -170,6 +170,27 @@ files can be imported and tested. The store tests are integration tests over the
 repository against `fake-indexeddb` — the bugs above live in how the store drives the saver,
 which a unit test of either half cannot see.
 
+### Markdown and safety
+
+**`src/lib/markdown.ts` sanitises with an allow-list, and that is not optional.** The threat
+model is not the local author — it is **import**. A bundle is a plain zip that can arrive by
+email or out of an old backup, and its stems go straight into `{@html}` the moment a
+collection is opened. `marked` dropped its own `sanitize` option years ago; DOMPurify does
+the work. `img` is deliberately absent from the allow-list: a remote image would put a
+network request into an app that promises to make none, and would leak the fact that a file
+was opened.
+
+It lives outside `domain/` because DOMPurify needs a DOM and domain has to stay headless.
+`markdown.test.ts` is the one file in the suite that runs under jsdom.
+
+**Clearing a number field means "not stated", which is not zero.** `points.ts` reports the
+two differently (`undeclared` vs `explicit`) and a collection total depends on it, so the
+editors `delete` the property rather than writing `0` or `NaN`.
+
+**Changing an item's kind never destroys authored content.** Options stay put when a choice
+item becomes an essay. A mis-click on a dropdown that silently deleted four written
+distractors would be unforgivable; validation reports them as unused instead.
+
 ## Stack notes and traps
 
 **Pin `typescript` to 6.x.** npm's `latest` is 7.x (the native compiler), but `svelte-check`
