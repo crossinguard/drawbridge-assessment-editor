@@ -56,6 +56,10 @@
 
   const sections = $derived([...(collection?.sections ?? [])].sort((a, b) => a.order - b.order));
 
+  // Passages other items can read from. Top-level only: a stimulus tucked inside a
+  // group belongs to that group's parts, not to the collection at large.
+  const stimuli = $derived(items.items.filter((item) => item.kind === 'stimulus'));
+
   const total = $derived(
     collection ? collectionPoints(collection, items.items, scoring) : null
   );
@@ -121,7 +125,16 @@
     await goto(`/v/${vaultId}/collections`);
   }
 
-  const KINDS: readonly ItemKind[] = ['choice', 'multi', 'trueFalse', 'shortAnswer'];
+  const KINDS: readonly ItemKind[] = [
+    'choice',
+    'multi',
+    'trueFalse',
+    'shortAnswer',
+    'essay',
+    'discussion',
+    'group',
+    'stimulus'
+  ];
 </script>
 
 <svelte:head><title>{collection?.title ?? 'Collection'} — Drawbridge</title></svelte:head>
@@ -234,6 +247,7 @@
             {sections}
             issues={issuesByEntity.get(item.id) ?? []}
             rubrics={rubrics.items}
+            {stimuli}
             {scoring}
             {focusId}
             onFocused={() => (focusId = null)}

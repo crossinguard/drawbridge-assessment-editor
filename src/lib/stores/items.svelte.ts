@@ -174,6 +174,99 @@ class ItemsStore {
     this.queueFieldSave(id);
   }
 
+  // -------------------------------------------------------------------------
+  // Group parts
+  //
+  // A group's parts live inside the parent row, so every one of these is an edit to
+  // ONE record. They go through the debounced field path rather than #write, because
+  // that is what they are — and because a part's own field edits already queue the
+  // parent, so mixing paths would race two writers over the same record.
+  // -------------------------------------------------------------------------
+
+  #findDeep(id: string): Item | undefined {
+    const search = (list: readonly Item[]): Item | undefined => {
+      for (const item of list) {
+        if (item.id === id) return item;
+        const found = search(item.parts);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    return search(this.items);
+  }
+
+  /** The record that actually gets written for a nested part: its top-level ancestor. */
+  #ownerOf(id: string): Item | undefined {
+    const owns = (item: Item): boolean =>
+      item.id === id || item.parts.some((part) => part.id === id || owns(part));
+    return this.items.find(owns);
+  }
+
+  addPart(parentId: string, kind: ItemKind): Item | null {
+    const parent = this.#findDeep(parentId);
+    const owner = this.#ownerOf(parentId);
+    if (!parent || !owner) return null;
+
+    const part = newItem({
+      collectionId: this.collectionId,
+      kind,
+      order: parent.parts.length,
+      status: parent.status
+    });
+    parent.parts = [...parent.parts, part];
+    this.queueFieldSave(owner.id);
+    return part;
+  }
+
+  removePart(parentId: string, partId: string): void {
+    const parent = this.#findDeep(parentId);
+    const owner = this.#ownerOf(parentId);
+    if (!parent || !owner) return;
+
+    parent.parts = parent.parts
+      .filter((part) => part.id !== partId)
+      .map((part, order) => ({ ...part, order }));
+    this.queueFieldSave(owner.id);
+  }
+
+  movePart(parentId: string, partId: string, delta: -1 | 1): void {
+    const parent = this.#findDeep(parentId);
+    const owner = this.#ownerOf(parentId);
+    if (!parent || !owner) return;
+
+    const parts = [...parent.parts].sort((a, b) => a.order - b.order);
+    const index = parts.findIndex((part) => part.id === partId);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= parts.length) return;
+
+    const [moved] = parts.splice(index, 1);
+    if (moved) parts.splice(target, 0, moved);
+    parent.parts = parts.map((part, order) => ({ ...part, order }));
+    this.queueFieldSave(owner.id);
+  }
+
+  duplicatePart(parentId: string, partId: string): Item | null {
+    const parent = this.#findDeep(parentId);
+    const owner = this.#ownerOf(parentId);
+    if (!parent || !owner) return null;
+
+    const original = parent.parts.find((part) => part.id === partId);
+    if (!original) return null;
+
+    const copy = duplicateItem(plain(original));
+    const parts = [...parent.parts].sort((a, b) => a.order - b.order);
+    parts.splice(parts.findIndex((part) => part.id === partId) + 1, 0, copy);
+    parent.parts = parts.map((part, order) => ({ ...part, order }));
+    this.queueFieldSave(owner.id);
+    return copy;
+  }
+
+  /** Queues a save for whichever top-level record owns this item. */
+  queueSaveForOwnerOf(id: string): void {
+    const owner = this.#ownerOf(id);
+    if (owner) this.queueFieldSave(owner.id);
+  }
+
   /** Writes `order` as a dense 0..n-1 run over each supplied group. */
   async #renumber(...groups: Item[][]): Promise<void> {
     const changed: Item[] = [];

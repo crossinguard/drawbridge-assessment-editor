@@ -3,11 +3,9 @@
   import type { Item, ItemKind, Outcome, Rubric, Section, Vault } from '$lib/domain/schema';
   import { ItemKindSchema } from '$lib/domain/schema';
   import { describePoints, itemPoints, type ScoringContext } from '$lib/domain/points';
-  import { usesExpected, usesOptions } from '$lib/domain/items';
   import { items as itemStore } from '$lib/stores/items.svelte';
-  import MarkdownField from '$lib/components/ui/MarkdownField.svelte';
-  import OptionsEditor from './OptionsEditor.svelte';
-  import OutcomePicker from './OutcomePicker.svelte';
+  import ItemBody from './ItemBody.svelte';
+  import PartsEditor from './PartsEditor.svelte';
 
   interface Props {
     item: Item;
@@ -18,6 +16,7 @@
     sections: readonly Section[];
     issues: Issue[];
     rubrics: readonly Rubric[];
+    stimuli: readonly Item[];
     scoring: ScoringContext;
     focusId: string | null;
     onFocused: () => void;
@@ -32,6 +31,7 @@
     sections,
     issues,
     rubrics,
+    stimuli,
     scoring,
     focusId,
     onFocused
@@ -40,9 +40,6 @@
   let stemField = $state<HTMLElement | null>(null);
   let expanded = $state(true);
 
-  // Stage 5 covers the selected-response kinds. The rest of the enum is offered but
-  // marked, so switching to one is a deliberate act rather than a surprise.
-  const READY_KINDS: readonly ItemKind[] = ['choice', 'multi', 'trueFalse', 'shortAnswer'];
   const allKinds = ItemKindSchema.options as readonly ItemKind[];
 
   const points = $derived(itemPoints(item, scoring));
@@ -97,12 +94,13 @@
       aria-label="Item kind"
     >
       {#each allKinds as kind (kind)}
-        <option value={kind}>{kind}{READY_KINDS.includes(kind) ? '' : ' (later stage)'}</option>
+        <option value={kind}>{kind}</option>
       {/each}
     </select>
 
-    <label class="flex items-center gap-1 text-xs text-text-muted">
-      Points
+    {#if item.kind !== 'stimulus'}
+      <label class="flex items-center gap-1 text-xs text-text-muted">
+        Points
       <input
         type="number"
         step="any"
@@ -116,14 +114,17 @@
           else item.points = Number(raw);
           edited();
         }}
-        placeholder="—"
-        aria-label="Points"
-      />
-    </label>
+          placeholder="—"
+          aria-label="Points"
+        />
+      </label>
 
-    <span class="text-xs text-text-muted" title="Computed from this item">
-      {describePoints(points)}
-    </span>
+      <span class="text-xs text-text-muted" title="Computed from this item">
+        {describePoints(points)}
+      </span>
+    {:else}
+      <span class="text-xs text-text-muted">passage · no points</span>
+    {/if}
 
     <select
       class={control}
@@ -205,106 +206,18 @@
 
   {#if expanded}
     <div class="flex flex-col gap-3 px-3 py-3">
-      <MarkdownField
-        bind:value={item.stem}
-        label="Stem"
-        hideLabel
-        rows={3}
-        placeholder="The question. Markdown works — tables, lists, code."
-        oninput={edited}
-      />
-
-      {#if usesOptions(item.kind)}
-        <OptionsEditor {item} onedit={edited} />
-      {/if}
-
-      {#if usesExpected(item.kind)}
-        <MarkdownField
-          bind:value={item.expected}
-          label={item.kind === 'essay' ? 'Model answer' : 'Expected answer'}
-          rows={2}
-          placeholder={item.kind === 'essay' ? 'What a strong response covers' : '25'}
-          oninput={edited}
-        />
-
-        {#if item.kind === 'shortAnswer'}
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-medium tracking-wide text-text-muted uppercase">
-              Also accept
-            </span>
-            <input
-              class="rounded border border-border-subtle bg-surface px-2 py-1 text-sm
-                     focus:border-border-strong focus:outline-2 focus:outline-accent"
-              value={item.accepted.join(', ')}
-              oninput={(event) => {
-                item.accepted = event.currentTarget.value
-                  .split(',')
-                  .map((entry) => entry.trim())
-                  .filter(Boolean);
-                edited();
-              }}
-              placeholder="25.0, twenty-five"
-            />
-          </label>
-        {/if}
-      {/if}
-
-      <div class="grid gap-3 sm:grid-cols-2">
-        <MarkdownField
-          bind:value={item.rationale}
-          label="Rationale"
-          rows={2}
-          placeholder="Why the key is the key"
-          oninput={edited}
-        />
-        <MarkdownField
-          bind:value={item.feedback}
-          label="Feedback"
-          rows={2}
-          placeholder="Shown whatever they answered"
-          oninput={edited}
-        />
-      </div>
-
-      <!--
-        Offered on every kind, not just essay and discussion. A rubric-scored short
-        answer is unusual but not wrong, and points.ts already resolves a rubric on
-        anything that carries one — hiding the field would make the model and the
-        editor disagree.
-      -->
-      <label class="flex flex-wrap items-center gap-2 text-xs text-text-muted">
-        <span class="font-medium tracking-wide uppercase">Rubric</span>
-        <select
-          class={control}
-          value={item.rubricId ?? ''}
-          onchange={(event) => {
-            const next = event.currentTarget.value;
-            if (next) item.rubricId = next;
-            else delete item.rubricId;
-            edited();
-          }}
-          aria-label="Rubric"
-        >
-          <option value="">None</option>
-          {#each rubrics as rubric (rubric.id)}
-            <option value={rubric.id}>{rubric.title || 'Untitled'}</option>
-          {/each}
-        </select>
-        {#if item.rubricId && item.points === undefined}
-          <span>Scored by the rubric — {describePoints(points)}.</span>
-        {:else if item.rubricId}
-          <span class="text-warning">The points above override the rubric total.</span>
-        {/if}
-      </label>
-
-      <OutcomePicker
-        selected={item.outcomeIds}
+      <ItemBody
+        {item}
         {outcomes}
-        onchange={(next) => {
-          item.outcomeIds = next;
-          edited();
-        }}
+        {rubrics}
+        {stimuli}
+        {scoring}
+        onedit={edited}
       />
+
+      {#if item.kind === 'group'}
+        <PartsEditor parent={item} {vault} {outcomes} {rubrics} {stimuli} {scoring} />
+      {/if}
 
       {#if issues.length > 0}
         <ul class="flex flex-col gap-0.5">

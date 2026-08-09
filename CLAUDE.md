@@ -187,6 +187,28 @@ It lives outside `domain/` because DOMPurify needs a DOM and domain has to stay 
 two differently (`undeclared` vs `explicit`) and a collection total depends on it, so the
 editors `delete` the property rather than writing `0` or `NaN`.
 
+### Item kinds
+
+**A group's parts are edited in place inside the top-level record.** Every part operation is
+an edit to ONE row, so they go through the debounced field path, not the immediate structural
+path. `queueSaveForOwnerOf(id)` walks up to whichever top-level ancestor actually gets
+written — queueing against a part's own id would target something that is not a row and
+silently go nowhere.
+
+**`ItemBody` is shared between a top-level item and a nested part.** ItemCard adds the
+header, which is where all the store coupling lives (sections, collection ordering,
+duplicate). Keeping that split is what stops the part editor either duplicating the field
+UI or dragging collection concerns into a nested context.
+
+**A stimulus is a passage, so the answer machinery is hidden rather than shown empty**, and
+the points field is not offered at all — `points.ts` pins it to zero regardless, and offering
+a field the model ignores would be a lie. Everything else stays visible even where it is
+unusual: hiding a field the schema accepts makes the editor and the model disagree.
+
+**`DiscussionSpec` is created on first edit, not on item creation.** `item.discussion ===
+undefined` is what validation reads to say "no posting requirements set", so writing an empty
+spec into every discussion item would silence a rule that is doing its job.
+
 ### Rubrics
 
 **`Criterion.descriptors` is keyed by LEVEL ID, and that makes changing levels the most
