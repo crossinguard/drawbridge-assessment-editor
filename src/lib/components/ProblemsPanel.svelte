@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { countBySeverity, sortIssues, type Issue } from '$lib/domain/validate';
 
   interface Props {
@@ -7,19 +8,28 @@
     subject?: string;
     /** Optional resolver so a row can be named rather than shown as a bare id. */
     labelFor?: (issue: Issue) => string | undefined;
+    /** Where to go to fix it. Rows become links when this returns a path. */
+    hrefFor?: (issue: Issue) => string | null;
+    /** Open on first render, for a screen whose whole purpose is the list. */
+    startOpen?: boolean;
   }
 
-  let { issues, subject = 'this vault', labelFor }: Props = $props();
+  let { issues, subject = 'this vault', labelFor, hrefFor, startOpen = false }: Props = $props();
 
   const counts = $derived(countBySeverity(issues));
   const sorted = $derived(sortIssues(issues));
-  let open = $state(false);
 
   /*
     Nothing here blocks anything. These are notes on work in progress — an outcome with
     no text yet is the normal state of an outcome five seconds after it is created —
-    so the panel starts collapsed and reports a count rather than shouting a list.
+    so the panel reports a count rather than shouting a list, and defaults to closed.
+
+    `startOpen` seeds the state and then stops mattering: once the panel is on screen
+    the user owns whether it is open. `untrack` is what says that on purpose — without
+    it Svelte rightly warns that a prop is being captured once, since that is usually a
+    mistake rather than the intent.
   */
+  let open = $state(untrack(() => startOpen));
 </script>
 
 {#if issues.length > 0}
@@ -45,6 +55,7 @@
     {#if open}
       <ul class="flex flex-col gap-1 border-t border-border-subtle px-4 py-3">
         {#each sorted as issue (issue.id)}
+          {@const href = hrefFor?.(issue) ?? null}
           <li class="flex items-start gap-2 text-xs">
             <span
               class="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full"
@@ -52,12 +63,22 @@
               class:bg-warning={issue.severity === 'warning'}
               class:bg-border-strong={issue.severity === 'info'}
             ></span>
-            <span class="text-text-muted">
+            <!--
+              A problem you cannot get to is only half reported, so a row links to the
+              screen that can fix it wherever one can be resolved.
+            -->
+            <svelte:element
+              this={href ? 'a' : 'span'}
+              {href}
+              class="text-text-muted {href
+                ? 'rounded underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-accent'
+                : ''}"
+            >
               {#if labelFor?.(issue)}
                 <span class="font-mono text-text">{labelFor(issue)}</span>
               {/if}
               {issue.message}
-            </span>
+            </svelte:element>
           </li>
         {/each}
       </ul>

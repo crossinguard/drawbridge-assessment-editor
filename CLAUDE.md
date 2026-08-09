@@ -187,6 +187,26 @@ It lives outside `domain/` because DOMPurify needs a DOM and domain has to stay 
 two differently (`undeclared` vs `explicit`) and a collection total depends on it, so the
 editors `delete` the property rather than writing `0` or `NaN`.
 
+### Review screens
+
+**`stores/review.svelte.ts` gathers through `repository.exportVault`.** That method already
+assembles exactly the shape coverage and validation need and is covered by the round-trip
+tests, so reusing it means one gather path instead of two that drift. It is a read; nothing
+about it is export-specific.
+
+**The review snapshot is not live, but it re-reads on every arrival.** Numbers that shift
+while you are reading them are worse than useless, so it holds still within a visit —
+and `onMount` reloads it, because coming back after an edit and being shown stale totals
+is its own kind of wrong.
+
+**Only a LEAF with no coverage is a gap.** A parent is reached through its children, so the
+matrix shows "via children" for one rather than a warning. Flagging every parent would paint
+most of a tree as a problem and bury the real ones.
+
+**A problem you cannot navigate to is only half reported.** `review.linkFor(issue)` resolves
+an issue to the screen that can fix it. Issue ids for nested things are `parentId:childId`,
+so only the first segment is an entity.
+
 ### Item kinds
 
 **A group's parts are edited in place inside the top-level record.** Every part operation is

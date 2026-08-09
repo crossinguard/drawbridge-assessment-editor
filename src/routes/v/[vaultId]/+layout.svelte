@@ -34,6 +34,7 @@
     { href: `/v/${vaultId}/outcomes`, label: 'Outcomes', exact: false },
     { href: `/v/${vaultId}/collections`, label: 'Collections', exact: false },
     { href: `/v/${vaultId}/rubrics`, label: 'Rubrics', exact: false },
+    { href: `/v/${vaultId}/coverage`, label: 'Coverage', exact: false },
     { href: `/v/${vaultId}/settings`, label: 'Settings', exact: false }
   ]);
 

@@ -45,15 +45,17 @@ Under construction, following the staged build order in
 - [x] Stage 6 — export and import
 - [x] Stage 7 — rubrics
 - [x] Stage 8 — discussion prompts, essays, groups and stimuli
-- [ ] Stage 9 — coverage and validation (next)
-- [ ] Stages 10–12 — see the brief
+- [x] Stage 9 — coverage and validation
+- [ ] Stage 10 — Markdown and CSV in the export bundle (next)
+- [ ] Stages 11–12 — see the brief
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
 feedback, points, rationale, outcome alignment, status and sections — plus essays,
 discussion prompts with posting requirements, multi-part groups, and shared stimulus
 passages that other items read from. Rubrics get a grid editor and can be attached to an
-item or to a whole collection.
+item or to a whole collection. The dashboard summarises coverage, recent work and open
+problems; the coverage matrix shows outcome × collection with the gaps called out.
 
 Your work can now leave the browser. **Export** writes a `drawbridge-<code>-<date>.zip` — a
 plain zip of plain JSON with a README inside explaining its own layout — and **Import**
