@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Issue } from '$lib/domain/validate';
-  import type { Item, ItemKind, Outcome, Section, Vault } from '$lib/domain/schema';
+  import type { Item, ItemKind, Outcome, Rubric, Section, Vault } from '$lib/domain/schema';
   import { ItemKindSchema } from '$lib/domain/schema';
   import { describePoints, itemPoints, type ScoringContext } from '$lib/domain/points';
   import { usesExpected, usesOptions } from '$lib/domain/items';
@@ -17,6 +17,7 @@
     outcomes: readonly Outcome[];
     sections: readonly Section[];
     issues: Issue[];
+    rubrics: readonly Rubric[];
     scoring: ScoringContext;
     focusId: string | null;
     onFocused: () => void;
@@ -30,6 +31,7 @@
     outcomes,
     sections,
     issues,
+    rubrics,
     scoring,
     focusId,
     onFocused
@@ -263,6 +265,37 @@
           oninput={edited}
         />
       </div>
+
+      <!--
+        Offered on every kind, not just essay and discussion. A rubric-scored short
+        answer is unusual but not wrong, and points.ts already resolves a rubric on
+        anything that carries one — hiding the field would make the model and the
+        editor disagree.
+      -->
+      <label class="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+        <span class="font-medium tracking-wide uppercase">Rubric</span>
+        <select
+          class={control}
+          value={item.rubricId ?? ''}
+          onchange={(event) => {
+            const next = event.currentTarget.value;
+            if (next) item.rubricId = next;
+            else delete item.rubricId;
+            edited();
+          }}
+          aria-label="Rubric"
+        >
+          <option value="">None</option>
+          {#each rubrics as rubric (rubric.id)}
+            <option value={rubric.id}>{rubric.title || 'Untitled'}</option>
+          {/each}
+        </select>
+        {#if item.rubricId && item.points === undefined}
+          <span>Scored by the rubric — {describePoints(points)}.</span>
+        {:else if item.rubricId}
+          <span class="text-warning">The points above override the rubric total.</span>
+        {/if}
+      </label>
 
       <OutcomePicker
         selected={item.outcomeIds}

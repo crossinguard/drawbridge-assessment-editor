@@ -43,12 +43,14 @@ Under construction, following the staged build order in
 - [x] Stage 4 — the outcome tree
 - [x] Stage 5 — collections and selected-response items
 - [x] Stage 6 — export and import
-- [ ] Stage 7 — rubrics (next)
-- [ ] Stages 8–12 — see the brief
+- [x] Stage 7 — rubrics
+- [ ] Stage 8 — discussion prompts, essays, groups and stimuli (next)
+- [ ] Stages 9–12 — see the brief
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
-feedback, points, rationale, outcome alignment, status and sections.
+feedback, points, rationale, outcome alignment, status and sections. Rubrics get a grid
+editor and can be attached to an item or to a whole collection.
 
 Your work can now leave the browser. **Export** writes a `drawbridge-<code>-<date>.zip` — a
 plain zip of plain JSON with a README inside explaining its own layout — and **Import**

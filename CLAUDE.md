@@ -187,6 +187,24 @@ It lives outside `domain/` because DOMPurify needs a DOM and domain has to stay 
 two differently (`undeclared` vs `explicit`) and a collection total depends on it, so the
 editors `delete` the property rather than writing `0` or `NaN`.
 
+### Rubrics
+
+**`Criterion.descriptors` is keyed by LEVEL ID, and that makes changing levels the most
+destructive operation in the app.** Get it wrong and a grid someone spent an afternoon on
+comes back blank, with no error and nothing to undo. Every level change goes through
+`domain/rubrics.ts` rather than editing arrays in a store or a component.
+
+**`applyLevels` carries descriptors across BY POSITION.** The incoming levels are fresh
+objects with fresh ids, so matching on id finds nothing and blanks the grid. Position is the
+only correspondence available and the right one: swapping a four-point scale for a
+differently-named four-point scale should keep what was written for "best", "second best"
+and so on. It reports `droppedDescriptors` so the UI can warn *before* committing.
+
+**Rubrics are shared; items and collections reference them by id.** Editing one changes
+every item pointing at it — intended, but worth remembering before "just tweaking" a level's
+points. Levels are always *copied* out of a config level set, never referenced, so a rubric
+owns its own.
+
 ### The bundle
 
 **Export must never be able to fail, and import must never be all-or-nothing.** A damaged

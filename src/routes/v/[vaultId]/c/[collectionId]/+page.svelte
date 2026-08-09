@@ -2,15 +2,15 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { repository } from '$lib/repo';
   import { collectionPoints, describePoints, type ScoringContext } from '$lib/domain/points';
   import { validateVault, type Issue } from '$lib/domain/validate';
-  import type { ItemKind, Rubric } from '$lib/domain/schema';
+  import type { ItemKind } from '$lib/domain/schema';
   import { activeVault } from '$lib/stores/vault.svelte';
   import { collections } from '$lib/stores/collections.svelte';
   import { items } from '$lib/stores/items.svelte';
   import { outcomes } from '$lib/stores/outcomes.svelte';
   import { backup } from '$lib/stores/backup.svelte';
+  import { rubrics } from '$lib/stores/rubrics.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import SaveIndicator from '$lib/components/SaveIndicator.svelte';
   import ProblemsPanel from '$lib/components/ProblemsPanel.svelte';
@@ -35,14 +35,11 @@
     void outcomes.load(vaultId);
   });
 
-  // Rubrics are not authored until a later stage, but items can already reference one
-  // and scoring has to resolve it, so they are loaded read-only.
-  let rubrics = $state<Rubric[]>([]);
   $effect(() => {
-    void repository.rubrics.listByVault(vaultId).then((loaded) => (rubrics = loaded));
+    void rubrics.load(vaultId);
   });
   const scoring = $derived<ScoringContext>({
-    rubricsById: new Map(rubrics.map((rubric) => [rubric.id, rubric]))
+    rubricsById: new Map(rubrics.items.map((rubric) => [rubric.id, rubric]))
   });
 
   onMount(() => {
@@ -76,7 +73,7 @@
       outcomes: outcomes.items,
       collections: [collection],
       itemsByCollection: new Map([[collection.id, items.items]]),
-      rubrics
+      rubrics: rubrics.items
     }).filter((issue) => !issue.ruleId.startsWith('coverage.'));
   });
 
@@ -176,6 +173,32 @@
             aria-label="Declared points"
           />
         </label>
+        <span>·</span>
+        <!--
+          A rubric on the COLLECTION scores the whole thing at once — a task or a
+          discussion marked as one piece. Its items then become structure rather than
+          score, which is why the total above switches to the rubric's.
+        -->
+        <label class="flex items-center gap-1">
+          Scored by
+          <select
+            class="rounded border border-border-subtle bg-surface px-1.5 py-0.5
+                   focus:border-border-strong focus:outline-2 focus:outline-accent"
+            value={collection.rubricId ?? ''}
+            onchange={(event) => {
+              const next = event.currentTarget.value;
+              if (next) collection.rubricId = next;
+              else delete collection.rubricId;
+              collections.queueSave();
+            }}
+            aria-label="Collection rubric"
+          >
+            <option value="">its items</option>
+            {#each rubrics.items as rubric (rubric.id)}
+              <option value={rubric.id}>{rubric.title || 'Untitled rubric'}</option>
+            {/each}
+          </select>
+        </label>
       </div>
     </header>
 
@@ -210,6 +233,7 @@
             outcomes={outcomes.items}
             {sections}
             issues={issuesByEntity.get(item.id) ?? []}
+            rubrics={rubrics.items}
             {scoring}
             {focusId}
             onFocused={() => (focusId = null)}
