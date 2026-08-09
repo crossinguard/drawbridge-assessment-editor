@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { ancestorsOf, buildTree, childrenOf, isLeaf, leavesOf, walkTree } from './outcomes';
+import {
+  ancestorsOf,
+  buildTree,
+  childrenOf,
+  descendantsOf,
+  isLeaf,
+  leavesOf,
+  unreachableOutcomes,
+  walkTree
+} from './outcomes';
 import { anOutcome } from './fixtures';
 
 const co1 = anOutcome({ id: 'co1', code: 'CO1', parentId: null, order: 0 });
@@ -71,5 +80,47 @@ describe('tree queries', () => {
     const a = anOutcome({ id: 'a', code: 'A', parentId: 'b' });
     const b = anOutcome({ id: 'b', code: 'B', parentId: 'a' });
     expect(() => ancestorsOf([a, b], 'a')).not.toThrow();
+  });
+});
+
+describe('descendantsOf', () => {
+  it('collects the whole subtree, at every depth', () => {
+    // What a delete confirmation counts before doing something irreversible.
+    expect(descendantsOf(tree, 'co1').map((o) => o.code)).toEqual([
+      'EO1.1',
+      'LO1.1.1',
+      'EO1.2'
+    ]);
+  });
+
+  it('is empty for a leaf, and excludes the node itself', () => {
+    expect(descendantsOf(tree, 'lo111')).toEqual([]);
+    expect(descendantsOf(tree, 'co1').map((o) => o.id)).not.toContain('co1');
+  });
+
+  it('terminates on a cycle', () => {
+    const a = anOutcome({ id: 'a', code: 'A', parentId: 'b' });
+    const b = anOutcome({ id: 'b', code: 'B', parentId: 'a' });
+    expect(() => descendantsOf([a, b], 'a')).not.toThrow();
+  });
+});
+
+describe('unreachableOutcomes', () => {
+  it('finds nothing in a healthy tree', () => {
+    expect(unreachableOutcomes(tree)).toEqual([]);
+  });
+
+  it('reports the members of a cycle, which buildTree silently drops', () => {
+    // Every member of the cycle is unreachable, not just one: each has a parent that
+    // exists, so none of them lands in the root bucket and the walk never arrives.
+    const a = anOutcome({ id: 'a', code: 'A', parentId: 'b' });
+    const b = anOutcome({ id: 'b', code: 'B', parentId: 'a' });
+    const found = unreachableOutcomes([co1, a, b]);
+    expect(found.map((o) => o.code).sort()).toEqual(['A', 'B']);
+  });
+
+  it('does not report a merely orphaned outcome, which buildTree promotes to a root', () => {
+    const orphan = anOutcome({ id: 'x', code: 'EO9.9', parentId: 'deleted-parent' });
+    expect(unreachableOutcomes([co1, orphan])).toEqual([]);
   });
 });

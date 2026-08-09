@@ -78,6 +78,41 @@ export function walkTree(nodes: readonly OutcomeNode[]): OutcomeNode[] {
   return nodes.flatMap((node) => [node, ...walkTree(node.children)]);
 }
 
+/**
+ * Everything beneath an outcome, at any depth, in display order.
+ *
+ * Deleting is the caller: an outcome and its subtree go together, so the UI needs to
+ * be able to say "and 7 outcomes under it" before doing anything irreversible.
+ */
+export function descendantsOf(outcomes: readonly Outcome[], outcomeId: string): Outcome[] {
+  const collected: Outcome[] = [];
+  // Guards a parentId cycle, which a bad merge on import can produce. Without it this
+  // walk would not terminate.
+  const seen = new Set<string>([outcomeId]);
+
+  const visit = (parentId: string) => {
+    for (const child of childrenOf(outcomes, parentId)) {
+      if (seen.has(child.id)) continue;
+      seen.add(child.id);
+      collected.push(child);
+      visit(child.id);
+    }
+  };
+
+  visit(outcomeId);
+  return collected;
+}
+
+/**
+ * Outcomes that no walk from the roots can reach — i.e. the members of a parentId
+ * cycle. `buildTree` silently drops these to avoid hanging; this is how they get
+ * reported rather than just disappearing from the screen.
+ */
+export function unreachableOutcomes(outcomes: readonly Outcome[]): Outcome[] {
+  const reachable = new Set(walkTree(buildTree(outcomes)).map((node) => node.outcome.id));
+  return outcomes.filter((outcome) => !reachable.has(outcome.id));
+}
+
 /** An outcome's ancestors, nearest first. Used for breadcrumbs and code suggestions. */
 export function ancestorsOf(outcomes: readonly Outcome[], outcomeId: string): Outcome[] {
   const byId = new Map(outcomes.map((outcome) => [outcome.id, outcome]));

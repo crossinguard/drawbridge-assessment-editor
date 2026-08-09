@@ -1,5 +1,6 @@
 import { collectionPoints, flattenItems, itemPoints, type ScoringContext } from './points';
 import { computeCoverage } from './coverage';
+import { unreachableOutcomes } from './outcomes';
 import type { Collection, Item, Outcome, Rubric, Vault } from './schema';
 
 /*
@@ -53,19 +54,17 @@ function issue(
   return { id: `${ruleId}:${entityId}`, ruleId, severity, entityType, entityId, message };
 }
 
-export function validateVault(input: ValidationInput): Issue[] {
-  const { vault, outcomes, collections, itemsByCollection, rubrics } = input;
-
+/**
+ * The outcome rules on their own.
+ *
+ * Split out because the outcomes screen needs exactly these and nothing else. Running
+ * the full `validateVault` there would mean loading every collection and item just to
+ * discard the results — and would bury the tree under "not assessed anywhere" warnings
+ * for outcomes the user is still in the middle of writing.
+ */
+export function validateOutcomes(vault: Vault, outcomes: readonly Outcome[]): Issue[] {
   const issues: Issue[] = [];
-  const rubricsById = new Map(rubrics.map((rubric) => [rubric.id, rubric]));
-  const context: ScoringContext = { rubricsById };
   const outcomeIds = new Set(outcomes.map((outcome) => outcome.id));
-  const statusKeys = new Set(vault.config.statuses.map((status) => status.key));
-  const kindKeys = new Set(vault.config.collectionKinds.map((kind) => kind.key));
-
-  // -------------------------------------------------------------------------
-  // Outcomes
-  // -------------------------------------------------------------------------
 
   const byCode = new Map<string, Outcome[]>();
   for (const outcome of outcomes) {
@@ -142,6 +141,36 @@ export function validateVault(input: ValidationInput): Issue[] {
       );
     }
   }
+
+  // A parentId cycle makes an outcome invisible: buildTree drops it rather than
+  // recursing forever, so without this rule it would vanish from the tree with no
+  // explanation anywhere.
+  for (const outcome of unreachableOutcomes(outcomes)) {
+    issues.push(
+      issue(
+        'outcome.cycle',
+        'error',
+        'outcome',
+        outcome.id,
+        `${outcome.code} is part of a loop in the outcome tree, so it cannot be shown. Move it to a new parent.`
+      )
+    );
+  }
+
+  return issues;
+}
+
+export function validateVault(input: ValidationInput): Issue[] {
+  const { vault, outcomes, collections, itemsByCollection, rubrics } = input;
+
+  const issues: Issue[] = [];
+  const rubricsById = new Map(rubrics.map((rubric) => [rubric.id, rubric]));
+  const context: ScoringContext = { rubricsById };
+  const outcomeIds = new Set(outcomes.map((outcome) => outcome.id));
+  const statusKeys = new Set(vault.config.statuses.map((status) => status.key));
+  const kindKeys = new Set(vault.config.collectionKinds.map((kind) => kind.key));
+
+  issues.push(...validateOutcomes(vault, outcomes));
 
   // -------------------------------------------------------------------------
   // Rubrics

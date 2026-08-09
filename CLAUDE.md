@@ -149,6 +149,27 @@ and discard the draft. This is the `$effect` trap above, in its most expensive f
 after a write resolves, keeps errors visible rather than fading them, and will not report
 "saved" over the top of an edit that queued while a write was in flight.
 
+**Queue the content you want written, never a handle to it.** `Autosave.queue()` skips a
+write whose value matches what was last stored. Queue something that does not vary with the
+record — a list of dirty ids, say — and every edit after the first looks like a no-op and is
+dropped, with no error and no change to the indicator. This shipped once and lost typed text.
+`stores/outcomes.test.ts` pins it.
+
+**A queued write has to be cancelled when its subject stops being true.** Deleting a record
+with an edit still pending resurrects it; reverting an edit writes the value you undid,
+because the superseded value is still sitting in the queue. Both go through
+`Autosave.cancel()` — see `#requeue()` in the outcomes store for the pattern.
+
+**Structural edits write immediately and report via `markSaved` / `markFailed`.** They touch
+several records and renumber siblings, so a half-applied debounce would leave a shape that
+never existed. They still have to reach the indicator, or it reads "No changes" straight
+after the user moved a row, and says nothing at all when the write failed.
+
+**`vitest.config.ts` loads the plain Svelte plugin** (not SvelteKit) so `.svelte.ts` store
+files can be imported and tested. The store tests are integration tests over the real
+repository against `fake-indexeddb` — the bugs above live in how the store drives the saver,
+which a unit test of either half cannot see.
+
 ## Stack notes and traps
 
 **Pin `typescript` to 6.x.** npm's `latest` is 7.x (the native compiler), but `svelte-check`

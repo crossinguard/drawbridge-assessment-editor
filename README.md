@@ -40,12 +40,12 @@ Under construction, following the staged build order in
 - [x] Stage 1 — domain model, points, coverage, validation
 - [x] Stage 2 — repository port and IndexedDB adapter
 - [x] Stage 3 — vaults, and the settings screen for vocabularies and custom fields
-- [ ] Stage 4 — outcomes (next)
-- [ ] Stages 5–12 — see the brief
+- [x] Stage 4 — the outcome tree
+- [ ] Stage 5 — collections and selected-response items (next)
+- [ ] Stages 6–12 — see the brief
 
-You can create courses and configure them. Outcomes, collections, items and rubrics arrive
-next; settings came first because everything downstream reads the vocabularies defined
-there.
+You can create courses, configure them, and build an outcome hierarchy of any depth.
+Collections, items and rubrics arrive next.
 
 Architecture notes and the invariants that matter are in [CLAUDE.md](CLAUDE.md).
 

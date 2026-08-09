@@ -31,6 +31,7 @@
 
   const nav = $derived([
     { href: `/v/${vaultId}`, label: 'Dashboard', exact: true },
+    { href: `/v/${vaultId}/outcomes`, label: 'Outcomes', exact: false },
     { href: `/v/${vaultId}/settings`, label: 'Settings', exact: false }
   ]);
 
