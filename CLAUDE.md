@@ -272,6 +272,59 @@ exactly backwards.
 item becomes an essay. A mis-click on a dropdown that silently deleted four written
 distractors would be unforgivable; validation reports them as unused instead.
 
+## How to work on this
+
+The build follows the staged order in the brief (§7). Each stage ends with `pnpm check` and
+`pnpm test` clean, a browser check, and one commit whose message explains *why*.
+
+**Verify in a real browser, and do not trust the UI's own report.** This is the practice that
+found every serious bug in this codebase, and none of them would have been caught any other
+way — the unit tests passed throughout.
+
+The method: drive the actual screen, then read IndexedDB **directly** and compare. Twice the
+screen said one thing and storage held another:
+
+- The outcomes store dropped every edit after the first. The save indicator said "Saved".
+- Reverting an edit wrote the value you had undone, because the superseded value was still
+  queued.
+
+Both were silent, both destroyed typed text, and both were invisible to `pnpm test`. A
+`fake-indexeddb` integration test now pins each one, but the browser found them first.
+
+Also worth doing every time:
+
+- **Wipe and restore.** Export, clear every store, re-import, deep-compare. Use a structural
+  compare, not `JSON.stringify` — Zod reconstructs objects in schema order, so key order
+  differs harmlessly and a string compare reports a false failure.
+- **Hand-check arithmetic** against seeded data rather than reading the totals back. The
+  coverage matrix was verified cell by cell.
+- **Clean up after yourself.** Delete scratch courses and clear `drawbridge:last-export`;
+  this is the user's real browser profile.
+
+**Escape sequences in generated files may land as literal bytes.** A NUL byte reached
+`coverage.ts` this way, and combining marks reached `format.ts`. The file compiles, tests
+pass, and `grep` silently matches nothing in it. `architecture.test.ts` guards both now;
+build such patterns with a script and verify the stored bytes.
+
+## Where things stand
+
+Stages 0–9 are done: scaffold, domain, repository, vaults and settings, outcomes, items,
+export/import, rubrics, all eight item kinds, coverage and validation. See README.md for what
+that means in user terms, and `git log` for the reasoning behind each.
+
+Deliberately not built yet:
+
+| | |
+| --- | --- |
+| Stage 10 | Markdown and CSV in the export bundle. The reader already ignores unrecognised files, so adding them cannot break an older import. |
+| Stage 11 | PWA polish — offline verification, install prompt, update flow (the `registerType: 'prompt'` seam is in place), real icons. |
+| Stage 12 | The `/help` guide, written last against the shipped UI. |
+| Undo/redo | Brief §5. Cross-cutting; deferred until the item model settled, which it now has. |
+| Command palette | Brief §5, `Ctrl/Cmd+K`. Also cross-cutting. |
+| Markdown sanitiser | Decided: DOMPurify with an allow-list. Not named by the brief; see `src/lib/markdown.ts`. |
+| Netlify deploy | The user's action, not the agent's. Verify the PWA locally instead. |
+| App icons | Placeholders. The real ones land at Stage 11. |
+
 ## Stack notes and traps
 
 **Pin `typescript` to 6.x.** npm's `latest` is 7.x (the native compiler), but `svelte-check`
