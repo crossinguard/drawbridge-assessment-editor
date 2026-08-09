@@ -105,6 +105,31 @@ describe('src/lib dependency direction', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('no source file contains an isolated combining mark', () => {
+    /*
+      A combining mark attaches to the character before it, so one written after a
+      bracket or a quote is invisible in an editor and in a diff. This has happened
+      here too, in a regex meant to say `[\u0300-\u036f]` and actually containing the
+      marks themselves — correct at runtime, unreadable in source.
+
+      A mark following a letter is legitimate (decomposed accented prose). One that is
+      not is always a mistake.
+    */
+    const isolated = new RegExp(String.raw`(?<![A-Za-z])[\u0300-\u036f]`, 'u');
+
+    const offenders = sourceFilesUnder(libDir)
+      .concat(sourceFilesUnder(join(libDir, '..', 'routes')))
+      .flatMap((file) => {
+        const text = readFileSync(file, 'utf8');
+        const match = isolated.exec(text);
+        if (!match) return [];
+        const line = text.slice(0, match.index).split('\n').length;
+        return [`${relative(libDir, file)}:${line}`];
+      });
+
+    expect(offenders).toEqual([]);
+  });
+
   it('export/ depends on domain only, never on storage', () => {
     const violations = check(
       'export',

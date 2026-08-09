@@ -8,6 +8,7 @@
   import Field from '$lib/components/ui/Field.svelte';
   import StorageNotice from '$lib/components/StorageNotice.svelte';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+  import ImportPanel from '$lib/components/ImportPanel.svelte';
 
   let creating = $state(false);
   let name = $state('');
@@ -118,10 +119,16 @@
         </form>
       {:else}
         <Button variant="primary" onclick={() => (creating = true)}>+ New course</Button>
-        <p class="mt-2 text-xs text-text-muted">
-          Importing a bundle arrives in a later stage; for now a course starts empty.
-        </p>
       {/if}
+    </section>
+
+    <section class="rounded-lg border border-border-subtle bg-surface p-4">
+      <h2 class="text-sm font-semibold">Import a bundle</h2>
+      <p class="mt-0.5 mb-3 text-xs text-text-muted">
+        A <code class="font-mono">drawbridge-*.zip</code> exported from here or from another
+        machine.
+      </p>
+      <ImportPanel />
     </section>
   {/if}
 </main>

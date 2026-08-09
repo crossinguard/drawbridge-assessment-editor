@@ -33,6 +33,7 @@
   "dependencies": {
     "dexie": "^4.4.4",
     "dompurify": "^3.4.13",
+    "fflate": "^0.8.3",
     "marked": "^18.0.9",
     "zod": "^4.4.3"
   }

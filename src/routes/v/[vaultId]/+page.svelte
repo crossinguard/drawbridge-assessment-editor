@@ -3,6 +3,7 @@
   import { storage } from '$lib/stores/storage.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import StorageNotice from '$lib/components/StorageNotice.svelte';
+  import ExportCard from '$lib/components/ExportCard.svelte';
 
   const vault = $derived(activeVault.draft);
 
@@ -25,6 +26,10 @@
   </div>
 
   <StorageNotice />
+
+  {#if vault}
+    <ExportCard vaultId={vault.id} vaultName={vault.name} />
+  {/if}
 
   <Card title="How this course is set up" description="All of it is editable in Settings.">
     <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2">

@@ -187,6 +187,27 @@ It lives outside `domain/` because DOMPurify needs a DOM and domain has to stay 
 two differently (`undeclared` vs `explicit`) and a collection total depends on it, so the
 editors `delete` the property rather than writing `0` or `NaN`.
 
+### The bundle
+
+**Export must never be able to fail, and import must never be all-or-nothing.** A damaged
+file costs you that file and nothing else; only a missing or unreadable `vault.json` is
+fatal, because without it there is no course to attach anything to. `readBundle` reports
+problems per file and returns everything it could salvage.
+
+**Say which failure happened.** A zip that will not open and a zip missing its vault record
+need different fixes — "download it again" versus "this is not a whole bundle" — and someone
+reading that message is usually mid-recovery.
+
+**Unrecognised files in a bundle are ignored, not rejected.** Markdown and CSV join the
+bundle at Stage 10, and a user may drop their own notes in. Neither is an error.
+
+**`SCHEMA_VERSION` bumps only when an older reader would MISREAD a newer bundle.** Adding a
+file, or a field that older code carries through as an unknown key, is not a reason.
+
+**Last-export time lives in localStorage, not on the vault.** Stored on the record it would
+travel inside the bundle, so restoring a backup would report that you had just exported —
+exactly backwards.
+
 **Changing an item's kind never destroys authored content.** Options stay put when a choice
 item becomes an essay. A mis-click on a dropdown that silently deleted four written
 distractors would be unforgivable; validation reports them as unused instead.

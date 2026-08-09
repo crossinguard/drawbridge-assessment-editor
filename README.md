@@ -42,15 +42,18 @@ Under construction, following the staged build order in
 - [x] Stage 3 — vaults, and the settings screen for vocabularies and custom fields
 - [x] Stage 4 — the outcome tree
 - [x] Stage 5 — collections and selected-response items
-- [ ] Stage 6 — export and import (next, and the one that gets your work out)
-- [ ] Stages 7–12 — see the brief
+- [x] Stage 6 — export and import
+- [ ] Stage 7 — rubrics (next)
+- [ ] Stages 8–12 — see the brief
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
 feedback, points, rationale, outcome alignment, status and sections.
 
-**There is still no way to get your work out of the browser.** That is Stage 6, and it is
-next for exactly that reason.
+Your work can now leave the browser. **Export** writes a `drawbridge-<code>-<date>.zip` — a
+plain zip of plain JSON with a README inside explaining its own layout — and **Import**
+brings one back, either as a new course or merged into the matching one. The dashboard
+says how long it has been since you last exported.
 
 Not built yet, both listed in the brief's UI expectations: undo/redo across structured
 edits, and the Ctrl/Cmd+K command palette.

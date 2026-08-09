@@ -2,8 +2,14 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+import { readFileSync } from 'node:fs';
+
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
 export default defineConfig({
+  // Injected rather than imported: importing package.json would pull the whole file,
+  // dependency list and all, into the client bundle just to read one string.
+  define: { __APP_VERSION__: JSON.stringify(version) },
   plugins: [
     tailwindcss(),
     sveltekit(),

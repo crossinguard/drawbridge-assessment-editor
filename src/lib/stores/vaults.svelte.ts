@@ -20,7 +20,15 @@ class VaultListStore {
   error = $state<string | null>(null);
 
   async load(): Promise<void> {
-    this.status = 'loading';
+    /*
+      Only the FIRST load reports "loading". A refresh after a mutation keeps the
+      current status, because the screen swaps to a spinner otherwise — and anything
+      rendered in that branch is unmounted and loses its state.
+
+      That is not hypothetical: it made the import panel's result message vanish the
+      instant it appeared, since importing refreshes this list.
+    */
+    if (this.status !== 'ready') this.status = 'loading';
     try {
       this.items = await repository.vaults.list();
       this.error = null;

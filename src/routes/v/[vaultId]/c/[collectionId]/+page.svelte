@@ -10,6 +10,7 @@
   import { collections } from '$lib/stores/collections.svelte';
   import { items } from '$lib/stores/items.svelte';
   import { outcomes } from '$lib/stores/outcomes.svelte';
+  import { backup } from '$lib/stores/backup.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import SaveIndicator from '$lib/components/SaveIndicator.svelte';
   import ProblemsPanel from '$lib/components/ProblemsPanel.svelte';
@@ -289,6 +290,13 @@
       {:else}
         <Button size="sm" onclick={() => (addingSection = true)}>+ Section</Button>
       {/if}
+      <Button
+        size="sm"
+        disabled={backup.busy}
+        onclick={() => backup.exportCollection(vaultId, collection.id)}
+      >
+        Export this collection
+      </Button>
       <Button size="sm" variant="danger" onclick={removeCollection}>Delete collection</Button>
     </div>
   </div>
