@@ -1,45 +1,127 @@
 <script lang="ts">
-  // Stage 0 placeholder. The vault list replaces this in Stage 3.
-  //
-  // Seeded straight from the DOM rather than through an $effect: app.html has
-  // already resolved the theme before first paint, so this is a one-time read of
-  // a settled value. An effect here would re-run on unrelated state changes and
-  // fight the toggle for ownership.
-  let theme = $state(document.documentElement.dataset.theme ?? 'light');
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { vaultList } from '$lib/stores/vaults.svelte';
+  import { storage } from '$lib/stores/storage.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import TextInput from '$lib/components/ui/TextInput.svelte';
+  import Field from '$lib/components/ui/Field.svelte';
+  import StorageNotice from '$lib/components/StorageNotice.svelte';
+  import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
-  function toggleTheme() {
-    theme = theme === 'light' ? 'dark' : 'light';
-    document.documentElement.dataset.theme = theme;
+  let creating = $state(false);
+  let name = $state('');
+  let code = $state('');
+  let term = $state('');
+  let busy = $state(false);
+
+  onMount(async () => {
+    // First run is where persistence has to be requested: Firefox shows a prompt, and
+    // a prompt on the very first screen is at least explicable.
+    await storage.ensure();
+    await vaultList.load();
+  });
+
+  async function create(event: SubmitEvent) {
+    event.preventDefault();
+    if (!name.trim() || !code.trim()) return;
+    busy = true;
     try {
-      localStorage.setItem('drawbridge:theme', theme);
-    } catch {
-      // A locked-down profile may refuse localStorage; the toggle still works
-      // for this session, it just will not be remembered.
+      const vault = await vaultList.create({
+        name: name.trim(),
+        code: code.trim(),
+        ...(term.trim() ? { term: term.trim() } : {})
+      });
+      await goto(`/v/${vault.id}`);
+    } finally {
+      busy = false;
     }
   }
 </script>
 
-<svelte:head>
-  <title>Drawbridge</title>
-</svelte:head>
+<svelte:head><title>Drawbridge</title></svelte:head>
 
-<main class="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 px-6">
-  <div>
-    <h1 class="text-3xl font-semibold tracking-tight">Drawbridge</h1>
-    <p class="mt-2 text-text-muted">
-      Author and manage course assessments. Everything stays in this browser.
-    </p>
-  </div>
+<main class="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-6 py-12">
+  <header class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Drawbridge</h1>
+      <p class="mt-1 text-sm text-text-muted">
+        Course assessments, authored and kept aligned. Everything stays in this browser.
+      </p>
+    </div>
+    <ThemeToggle />
+  </header>
 
-  <div class="rounded-lg border border-border-subtle bg-surface p-5">
-    <p class="text-sm text-text-muted">
-      Scaffold only. The vault list lands in Stage 3.
-    </p>
-    <button
-      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-text"
-      onclick={toggleTheme}
-    >
-      Switch to {theme === 'light' ? 'dark' : 'light'} theme
-    </button>
-  </div>
+  <StorageNotice />
+
+  {#if vaultList.status === 'loading'}
+    <p class="text-sm text-text-muted">Opening…</p>
+  {:else if vaultList.status === 'error'}
+    <p class="text-sm text-danger">Could not read local storage: {vaultList.error}</p>
+  {:else}
+    <section class="flex flex-col gap-2">
+      <h2 class="text-xs font-medium tracking-wide text-text-muted uppercase">Courses</h2>
+
+      {#if vaultList.items.length === 0}
+        <p class="rounded-lg border border-dashed border-border-subtle px-4 py-6 text-sm text-text-muted">
+          No courses yet. Create one below to get started.
+        </p>
+      {:else}
+        <ul class="flex flex-col gap-2">
+          {#each vaultList.items as vault (vault.id)}
+            <li>
+              <a
+                href="/v/{vault.id}"
+                class="flex items-center justify-between gap-4 rounded-lg border border-border-subtle
+                       bg-surface px-4 py-3 transition-colors hover:border-border-strong
+                       hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-offset-2
+                       focus-visible:outline-accent"
+              >
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-medium text-text">{vault.name}</span>
+                  <span class="block truncate text-xs text-text-muted">
+                    {vault.code}{vault.term ? ` · ${vault.term}` : ''}
+                  </span>
+                </span>
+                <span aria-hidden="true" class="text-text-muted">→</span>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
+    <section class="rounded-lg border border-border-subtle bg-surface p-4">
+      {#if creating}
+        <form class="flex flex-col gap-3" onsubmit={create}>
+          <div class="grid gap-3 sm:grid-cols-3">
+            <Field label="Course name">
+              {#snippet children({ id })}
+                <TextInput {id} bind:value={name} placeholder="Introductory Statistics" required />
+              {/snippet}
+            </Field>
+            <Field label="Code">
+              {#snippet children({ id })}
+                <TextInput {id} bind:value={code} placeholder="STAT101" required />
+              {/snippet}
+            </Field>
+            <Field label="Term">
+              {#snippet children({ id })}
+                <TextInput {id} bind:value={term} placeholder="Fall 2026" />
+              {/snippet}
+            </Field>
+          </div>
+          <div class="flex items-center gap-2">
+            <Button type="submit" variant="primary" disabled={busy}>Create course</Button>
+            <Button type="button" variant="ghost" onclick={() => (creating = false)}>Cancel</Button>
+          </div>
+        </form>
+      {:else}
+        <Button variant="primary" onclick={() => (creating = true)}>+ New course</Button>
+        <p class="mt-2 text-xs text-text-muted">
+          Importing a bundle arrives in a later stage; for now a course starts empty.
+        </p>
+      {/if}
+    </section>
+  {/if}
 </main>

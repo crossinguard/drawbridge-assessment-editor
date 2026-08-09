@@ -39,11 +39,13 @@ Under construction, following the staged build order in
 - [x] Stage 0 — scaffold, theming, PWA, deploy config
 - [x] Stage 1 — domain model, points, coverage, validation
 - [x] Stage 2 — repository port and IndexedDB adapter
-- [ ] Stage 3 — vaults and settings (next)
-- [ ] Stages 4–12 — see the brief
+- [x] Stage 3 — vaults, and the settings screen for vocabularies and custom fields
+- [ ] Stage 4 — outcomes (next)
+- [ ] Stages 5–12 — see the brief
 
-There is no user interface yet beyond a placeholder. The model and storage underneath it are
-complete and tested.
+You can create courses and configure them. Outcomes, collections, items and rubrics arrive
+next; settings came first because everything downstream reads the vocabularies defined
+there.
 
 Architecture notes and the invariants that matter are in [CLAUDE.md](CLAUDE.md).
 

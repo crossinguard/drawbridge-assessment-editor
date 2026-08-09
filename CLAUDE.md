@@ -124,6 +124,31 @@ carries no meaning — and is not worth trading the guarantee above to fix.)
 **Deleting cascades.** Removing a collection removes its items; `deleteVault` removes
 everything beneath it. Anything that adds a new owned entity has to extend both.
 
+### Store and UI invariants
+
+**Everything crossing into the repository goes through `plain()`** (`stores/plain.svelte.ts`).
+`$state` hands out a Proxy and IndexedDB writes through structured clone, which throws on
+one. The symptom is a `DataCloneError` at write time, which reads as a storage problem and
+sends you looking in the wrong layer entirely.
+
+**Autosave needs its baseline accepted after a load.** `Autosave.accept(value)` records what
+is already stored. Without it, the first run of the effect that watches a freshly loaded
+record writes it straight back, bumping `updatedAt` and flashing "Saved" when nothing
+changed.
+
+**The settings autosave effect reads the draft deeply, on purpose.** Calling `plain(draft)`
+inside it is what makes a level's points three objects down re-run the effect. A shallow
+read there would mean edits inside `config` never reach storage — and nothing would report
+it, because the screen would still show the change.
+
+**But the route effect that opens a vault must depend on the id and nothing else.** Reading
+`activeVault.draft` in that effect would make every keystroke in settings re-open the vault
+and discard the draft. This is the `$effect` trap above, in its most expensive form.
+
+**There is no save button, so `SaveIndicator` is load-bearing.** It reports `saved` strictly
+after a write resolves, keeps errors visible rather than fading them, and will not report
+"saved" over the top of an edit that queued while a write was in flight.
+
 ## Stack notes and traps
 
 **Pin `typescript` to 6.x.** npm's `latest` is 7.x (the native compiler), but `svelte-check`
