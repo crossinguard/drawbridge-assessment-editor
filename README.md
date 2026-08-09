@@ -46,8 +46,9 @@ Under construction, following the staged build order in
 - [x] Stage 7 — rubrics
 - [x] Stage 8 — discussion prompts, essays, groups and stimuli
 - [x] Stage 9 — coverage and validation
-- [ ] Stage 10 — Markdown and CSV in the export bundle (next)
-- [ ] Stages 11–12 — see the brief
+- [x] Stage 10 — Markdown and CSV in the export bundle
+- [ ] Stage 11 — PWA polish (next)
+- [ ] Stage 12 — the in-app guide
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
@@ -58,9 +59,15 @@ item or to a whole collection. The dashboard summarises coverage, recent work an
 problems; the coverage matrix shows outcome × collection with the gaps called out.
 
 Your work can now leave the browser. **Export** writes a `drawbridge-<code>-<date>.zip` — a
-plain zip of plain JSON with a README inside explaining its own layout — and **Import**
-brings one back, either as a new course or merged into the matching one. The dashboard
-says how long it has been since you last exported.
+plain zip with a README inside explaining its own layout — and **Import** brings one back,
+either as a new course or merged into the matching one. The dashboard says how long it has
+been since you last exported.
+
+The bundle holds each course twice over. The JSON is the lossless form and the only thing
+import reads. Beside it sit the readable views: each assessment as a Markdown document with
+its questions, key and rationale; each rubric as a criteria × levels table; the outcome tree
+as a nested list; and two spreadsheets, `items.csv` and `coverage.csv`. Questions are
+numbered the same way throughout, so question 4 in the document is row `4.` in the CSV.
 
 Not built yet, both listed in the brief's UI expectations: undo/redo across structured
 edits, and the Ctrl/Cmd+K command palette.

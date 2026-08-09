@@ -14,10 +14,10 @@ import {
   should be able to open it and understand it without this app, which is why it carries
   its own README and why nothing here is compressed, encoded, or clever.
 
-  JSON is the lossless form and the only thing `import` reads. Markdown and CSV join
-  the bundle in a later stage purely for humans and other tools; the importer will keep
-  ignoring them, and it already ignores any file it does not recognise so that a bundle
-  from a newer version — or one a user has dropped their own notes into — still loads.
+  JSON is the lossless form and the only thing `import` reads. The Markdown and CSV
+  alongside it are derived views for humans and other tools; the importer skips them,
+  as it skips any file it does not recognise, so that a bundle from a newer version —
+  or one a user has dropped their own notes into — still loads.
 */
 
 /**
@@ -32,6 +32,9 @@ export const PATHS = {
   manifest: 'manifest.json',
   vault: 'vault.json',
   outcomes: 'outcomes.json',
+  outcomesMarkdown: 'outcomes.md',
+  items: 'items.csv',
+  coverage: 'coverage.csv',
   collections: 'collections/',
   rubrics: 'rubrics/'
 } as const;

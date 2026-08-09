@@ -51,11 +51,53 @@ describe('bundle layout', () => {
     expect(Object.keys(files).sort()).toEqual([
       'README.md',
       'collections/unit-1-test.json',
+      'collections/unit-1-test.md',
+      'coverage.csv',
+      'items.csv',
       'manifest.json',
       'outcomes.json',
+      'outcomes.md',
       'rubrics/discussion-participation.json',
+      'rubrics/discussion-participation.md',
       'vault.json'
     ]);
+  });
+
+  it('puts a collection’s two forms on the same filename stem', () => {
+    // `unit-1-test.json` and `unit-1-test-2.md` would be a quietly broken pairing,
+    // and the obvious way to write this — a second slugger for the Markdown — does
+    // exactly that.
+    const snapshot = aSnapshot();
+    const twin = aCollection({ vaultId: snapshot.vault.id, kind: 'quiz', title: 'Unit 1 Test' });
+    const files = buildBundleFiles(
+      { ...snapshot, collections: [...snapshot.collections, twin] },
+      META
+    );
+
+    for (const stem of ['unit-1-test', 'unit-1-test-2']) {
+      expect(files[`collections/${stem}.json`]).toBeDefined();
+      expect(files[`collections/${stem}.md`]).toBeDefined();
+    }
+  });
+
+  it('renders a derived file as a note rather than failing the whole export', () => {
+    /*
+      Export is the data-rescue path and must never be able to fail. A record shaped
+      in a way the Markdown writer does not survive costs that one readable file; the
+      lossless JSON is still in the bundle beside it.
+    */
+    const snapshot = aSnapshot();
+    const broken = {
+      ...snapshot,
+      // `sections` is walked to group the items; a non-array is the cheapest stand-in
+      // for the hand-edited or newer-version record this guards against.
+      collections: [{ ...snapshot.collections[0]!, sections: null as never }]
+    };
+
+    const files = buildBundleFiles(broken, META);
+    expect(files['collections/unit-1-test.md']).toContain('could not render');
+    expect(files['collections/unit-1-test.md']).toContain('Nothing has been lost');
+    expect(JSON.parse(files['collections/unit-1-test.json']!).items).toHaveLength(2);
   });
 
   it('keeps a collection and its items in one file', () => {

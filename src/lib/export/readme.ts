@@ -34,6 +34,9 @@ settings that give both meaning.
 
 ## What is in here
 
+**The JSON is the real thing.** Everything else in this zip is a readable view of it,
+written for a person or a spreadsheet. Nothing reads those views back.
+
 | File | What it holds |
 | --- | --- |
 | \`manifest.json\` | What this bundle is, when it was written, and how much is in it. |
@@ -41,11 +44,22 @@ settings that give both meaning.
 | \`outcomes.json\` | Every outcome, flat, each carrying its own \`parentId\`. Assemble the tree by following those. \`order\` sorts siblings. |
 | \`collections/*.json\` | One file per collection — an item bank, quiz, exam, task or discussion set — with its items inside it. |
 | \`rubrics/*.json\` | One file per rubric: its levels and its criteria. |
+| \`collections/*.md\` | The same assessment written out to be read: instructions, then each question with its key, rationale and feedback. Options are a task list, and \`[x]\` marks the answer. |
+| \`rubrics/*.md\` | The same rubric as a criteria × levels table. |
+| \`outcomes.md\` | The outcome tree as a nested list. |
+| \`items.csv\` | Every item in the course on one row, group parts included. \`parentId\` says which parent a part belongs to — its points are already counted inside that parent, so summing the whole column double-counts them. |
+| \`coverage.csv\` | Outcome × collection: how many items reach each outcome and how many points. |
 
 ## How to read it
 
-Everything is plain JSON with no compression beyond the zip itself. Open any file in a
-text editor.
+Everything is plain text with no compression beyond the zip itself. Open any file in a
+text editor. The CSVs start with a byte-order mark so that Excel on Windows reads
+their accents correctly; every other tool ignores it.
+
+The Markdown and the CSVs number questions the same way — question 4 in the document
+is row \`4.\` in \`items.csv\`, and \`4.2.\` is the second part of it — and every item,
+outcome and rubric carries its id, so the readable files and the JSON can be joined
+back together.
 
 A few things worth knowing before you interpret the numbers:
 
@@ -59,6 +73,12 @@ A few things worth knowing before you interpret the numbers:
   other items refer to through \`stimulusId\`.
 - \`declaredPoints\` on a collection is what the author *said* it was worth. It is
   cross-checked against the computed total and never used to override it.
+- **In \`coverage.csv\`, an item aligned to three outcomes counts its full points
+  towards each of them**, not a third towards each. The question that table answers is
+  how much assessment touches an outcome, not how to divide a mark, so its points
+  column adds up to more than the course is worth. A row with a blank collection and
+  zeros is an outcome nothing assesses; check \`outcomeIsLeaf\` before calling it a gap,
+  because a parent outcome is reached through its children.
 
 Fields the app did not recognise were preserved exactly as they were found, so nothing
 is lost by a round trip through a version that predates them.

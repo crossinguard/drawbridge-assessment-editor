@@ -13,6 +13,9 @@ import {
   type Manifest
 } from './format';
 import { bundleReadme } from './readme';
+import { coverageCsv, itemsCsv } from './csv';
+import { collectionMarkdown, outcomesMarkdown, rubricMarkdown } from './markdown';
+import { readableContext } from './readable';
 
 /*
   Writing and reading a bundle.
@@ -60,6 +63,30 @@ export function buildBundleFiles(
     partial
   };
 
+  /*
+    Slugs are worked out up front, and once, for two reasons: a collection's JSON and
+    its Markdown must land on the same stem rather than `unit-1-test` and
+    `unit-1-test-2`, and the collection documents link to the rubric documents, which
+    means knowing every rubric's filename before writing the first collection.
+
+    One slugger per kind, so two collections with the same title get distinct
+    filenames instead of one silently overwriting the other inside the zip.
+  */
+  const collectionSlug = uniqueSlugger();
+  const collectionSlugs = new Map(
+    snapshot.collections.map((collection) => [
+      collection.id,
+      collectionSlug(collection.title, 'collection')
+    ])
+  );
+
+  const rubricSlug = uniqueSlugger();
+  const rubricSlugs = new Map(
+    snapshot.rubrics.map((rubric) => [rubric.id, rubricSlug(rubric.title, 'rubric')])
+  );
+
+  const context = readableContext(snapshot, rubricSlugs);
+
   const files: Record<string, string> = {
     [PATHS.readme]: bundleReadme({
       vaultName: snapshot.vault.name,
@@ -71,26 +98,51 @@ export function buildBundleFiles(
     }),
     [PATHS.manifest]: json(manifest),
     [PATHS.vault]: json(snapshot.vault),
-    [PATHS.outcomes]: json(snapshot.outcomes)
+    [PATHS.outcomes]: json(snapshot.outcomes),
+    [PATHS.outcomesMarkdown]: safely(() => outcomesMarkdown(snapshot.outcomes, context)),
+    [PATHS.items]: safely(() => itemsCsv(snapshot, context)),
+    [PATHS.coverage]: safely(() => coverageCsv(snapshot, context))
   };
 
-  // One slugger per bundle, so two collections with the same title get distinct
-  // filenames instead of one silently overwriting the other inside the zip.
-  const collectionSlug = uniqueSlugger();
   for (const collection of snapshot.collections) {
-    const slug = collectionSlug(collection.title, 'collection');
-    files[`${PATHS.collections}${slug}.json`] = json({
-      collection,
-      items: snapshot.items.filter((item) => item.collectionId === collection.id)
-    });
+    const slug = collectionSlugs.get(collection.id) ?? collection.id;
+    const items = snapshot.items.filter((item) => item.collectionId === collection.id);
+
+    files[`${PATHS.collections}${slug}.json`] = json({ collection, items });
+    files[`${PATHS.collections}${slug}.md`] = safely(() =>
+      collectionMarkdown(collection, items, context)
+    );
   }
 
-  const rubricSlug = uniqueSlugger();
   for (const rubric of snapshot.rubrics) {
-    files[`${PATHS.rubrics}${rubricSlug(rubric.title, 'rubric')}.json`] = json(rubric);
+    const slug = rubricSlugs.get(rubric.id) ?? rubric.id;
+    files[`${PATHS.rubrics}${slug}.json`] = json(rubric);
+    files[`${PATHS.rubrics}${slug}.md`] = safely(() => rubricMarkdown(rubric, context));
   }
 
   return files;
+}
+
+/**
+ * Renders one derived file, or a note explaining why it is not there.
+ *
+ * Export is the data-rescue path and must never be able to fail. The JSON writers
+ * cannot — `JSON.stringify` is total — but the Markdown and CSV writers walk the model
+ * and format its numbers, and a record from a hand-edit or a future version could be
+ * shaped in a way they do not survive. Losing the whole backup over a broken heading
+ * would be indefensible; losing one derived file, with the lossless JSON still sitting
+ * beside it, costs nothing but the reading.
+ */
+function safely(render: () => string): string {
+  try {
+    return render();
+  } catch (cause) {
+    return `Drawbridge could not render this file: ${describe(cause)}
+
+Nothing has been lost. The JSON in this bundle is complete, and the JSON is what the
+importer reads; this file is only a readable view of it.
+`;
+  }
 }
 
 export function writeBundle(snapshot: VaultSnapshot, meta: BundleMeta): Uint8Array {

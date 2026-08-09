@@ -258,8 +258,41 @@ problems per file and returns everything it could salvage.
 need different fixes — "download it again" versus "this is not a whole bundle" — and someone
 reading that message is usually mid-recovery.
 
-**Unrecognised files in a bundle are ignored, not rejected.** Markdown and CSV join the
-bundle at Stage 10, and a user may drop their own notes in. Neither is an error.
+**Unrecognised files in a bundle are ignored, not rejected.** The Markdown and CSV are
+skipped on import along with anything else that is not `.json`, and a user may drop their
+own notes in. Neither is an error.
+
+**The readable files are derived views, and only the JSON is read back.** That asymmetry
+is what lets `export/markdown.ts` and `export/csv.ts` collapse a stem onto one line, drop
+an item's revision log, and abbreviate a heading — the lossless form is in the same zip.
+Do not add a Markdown or CSV *reader*; JSON is the round-trip path.
+
+**A collection's `.json` and `.md` must share a filename stem**, so slugs are computed
+once in `buildBundleFiles` and passed down. A second `uniqueSlugger()` for the Markdown
+would silently produce `unit-1-test.json` beside `unit-1-test-2.md`. The collection
+documents also link to the rubric documents, which is the other reason every slug has to
+be known before the first file is written.
+
+**Each derived file is rendered inside `safely()`**, which returns a note in its place if
+the writer throws. Export must never be able to fail, and unlike `JSON.stringify` these
+writers walk the model and format its numbers. One unrenderable readable file, with the
+lossless JSON still beside it, costs the reading and nothing else.
+
+**`export/readable.ts` owns document order, and both writers follow it.** The one way
+these files can embarrass the app is by disagreeing — question 4 in the exam document
+being a different question from row `4.` in `items.csv`. Numbering runs continuously
+across sections, as a printed test numbers itself, and a group's parts are `4.1.`, `4.2.`.
+
+**`src/lib/export/markdown.ts` is not `src/lib/markdown.ts`.** The first only writes
+Markdown, for the bundle; the second sanitises it for display and is the one with the
+DOMPurify allow-list.
+
+**The CSVs carry a UTF-8 BOM and CRLF line endings.** Excel on the locked-down Windows
+machine reads a BOM-less UTF-8 CSV as the system code page, so `Café` arrives as `CafÃ©`;
+every other reader skips the mark. The BOM is written as `'\ufeff'` and never as the
+character — a literal one is invisible in an editor and in a diff. Fields are otherwise
+untouched: a leading `=` is left alone, because the usual defence corrupts the data and
+`=MEAN(x)` is a plausible thing to find in a stem.
 
 **`SCHEMA_VERSION` bumps only when an older reader would MISREAD a newer bundle.** Adding a
 file, or a field that older code carries through as an unknown key, is not a reason.
