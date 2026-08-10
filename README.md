@@ -50,7 +50,9 @@ Under construction, following the staged build order in
 - [x] Stage 9 — coverage and validation
 - [x] Stage 10 — Markdown and CSV in the export bundle
 - [x] Stage 11 — PWA: offline, installable, update prompt, icons
-- [ ] Stage 12 — the in-app guide (next)
+- [x] Stage 12 — the in-app guide at `/help`
+
+That is the staged build finished.
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
@@ -75,6 +77,11 @@ Drawbridge installs as an app and runs with no network at all — open it, autho
 export, offline throughout. When a new version has been deployed it says so in the corner
 and waits: nothing reloads until you say so, and accepting writes out anything still being
 saved before it does.
+
+**`/help`** is the guide — a quickstart, a reference section per item kind, how points are
+worked out, and what is deliberately absent. It is prerendered and precached, so it reads
+offline too. There is a link to it on the home screen and at the foot of every course
+sidebar.
 
 Not built yet, both listed in the brief's UI expectations: undo/redo across structured
 edits, and the Ctrl/Cmd+K command palette.

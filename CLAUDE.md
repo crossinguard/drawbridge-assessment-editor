@@ -228,6 +228,22 @@ rsvg-convert -w 512 -h 512 scripts/icons/maskable.svg -o static/icon-maskable-51
 rsvg-convert -w 180 -h 180 scripts/icons/maskable.svg -o static/apple-touch-icon.png
 ```
 
+### The guide
+
+**`/help` describes the shipped UI, so it goes stale the moment a screen changes.** Any
+change to a label, a shortcut, a confirmation or a default is also an edit to
+`src/routes/help/+page.svelte`. It names buttons — `+ Align`, `Reload now`, `Delete
+permanently` — because a guide that gestures vaguely is no use, and that precision is
+exactly what rots.
+
+**It says what is missing, on purpose.** No undo, no command palette, no way to move an
+item between collections. Someone deciding whether it is safe to click delete is the
+reader most in need of an accurate answer, and "the guide didn't mention it" reads as
+"there must be a way".
+
+**It is static markup and prerenders**, so it lands in the precache and can be read with no
+network — which is when a locked-down work machine is most likely to need it.
+
 ### Review screens
 
 **`stores/review.svelte.ts` gathers through `repository.exportVault`.** That method already
@@ -382,16 +398,16 @@ build such patterns with a script and verify the stored bytes.
 
 ## Where things stand
 
-Stages 0–11 are done: scaffold, domain, repository, vaults and settings, outcomes, items,
-export/import, rubrics, all eight item kinds, coverage and validation, Markdown and CSV in the
-bundle, and the PWA. See README.md for what that means in user terms, and `git log` for the
-reasoning behind each.
+**The staged build in the brief is finished — stages 0 to 12.** Scaffold, domain,
+repository, vaults and settings, outcomes, items, export/import, rubrics, all eight item
+kinds, coverage and validation, Markdown and CSV in the bundle, the PWA, and the `/help`
+guide. See README.md for what that means in user terms, and `git log` for the reasoning
+behind each.
 
 Deliberately not built yet:
 
 | | |
 | --- | --- |
-| Stage 12 | The `/help` guide, written last against the shipped UI. |
 | Undo/redo | Brief §5. Cross-cutting; deferred until the item model settled, which it now has. |
 | Command palette | Brief §5, `Ctrl/Cmd+K`. Also cross-cutting. |
 | Markdown sanitiser | Decided: DOMPurify with an allow-list. Not named by the brief; see `src/lib/markdown.ts`. |

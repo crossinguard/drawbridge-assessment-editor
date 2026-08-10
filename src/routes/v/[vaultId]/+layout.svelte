@@ -88,8 +88,16 @@
         {/each}
       </nav>
 
-      <div class="mt-auto hidden lg:block">
+      <div class="mt-auto hidden lg:flex lg:items-center lg:justify-between lg:gap-2">
         <SaveIndicator saver={activeVault.saver} />
+        <a
+          href="/help"
+          class="rounded px-1.5 py-1 text-xs text-text-muted underline-offset-2
+                 hover:text-text hover:underline focus-visible:outline-2
+                 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          Guide
+        </a>
       </div>
     </aside>
 

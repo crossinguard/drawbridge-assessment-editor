@@ -50,7 +50,17 @@
         Course assessments, authored and kept aligned. Everything stays in this browser.
       </p>
     </div>
-    <ThemeToggle />
+    <div class="flex items-center gap-2">
+      <a
+        href="/help"
+        class="rounded-md px-2.5 py-1.5 text-sm text-text-muted transition-colors
+               hover:bg-surface-raised hover:text-text focus-visible:outline-2
+               focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        Guide
+      </a>
+      <ThemeToggle />
+    </div>
   </header>
 
   <StorageNotice />

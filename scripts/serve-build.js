@@ -35,12 +35,26 @@ const TYPES = {
   '.zip': 'application/zip'
 };
 
+async function isFile(path) {
+  try {
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The file a path maps to, or null when nothing matches and the fallback should
  * take over.
  *
- * Anything that resolves outside `build/` returns null rather than an error: a
- * traversal attempt is not a case worth distinguishing from a miss.
+ * `/help` has to find `help.html`, because that is what a prerendered route is
+ * written as and what Netlify resolves it to. Without that step every prerendered
+ * page but the root would fall through to the SPA fallback here and still work,
+ * which is exactly the kind of "works locally, differently" that this server exists
+ * to avoid.
+ *
+ * Anything resolving outside `build/` returns null rather than an error: a traversal
+ * attempt is not a case worth distinguishing from a miss.
  */
 async function fileFor(pathname) {
   let decoded;
@@ -53,20 +67,11 @@ async function fileFor(pathname) {
   const candidate = resolve(join(root, decoded));
   if (candidate !== root && !candidate.startsWith(root + sep)) return null;
 
-  try {
-    const info = await stat(candidate);
-    if (!info.isDirectory()) return candidate;
-  } catch {
-    return null;
-  }
+  if (await isFile(candidate)) return candidate;
+  if (await isFile(`${candidate}.html`)) return `${candidate}.html`;
 
   const index = join(candidate, 'index.html');
-  try {
-    await stat(index);
-    return index;
-  } catch {
-    return null;
-  }
+  return (await isFile(index)) ? index : null;
 }
 
 const server = createServer(async (request, response) => {
