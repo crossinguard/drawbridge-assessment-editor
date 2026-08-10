@@ -9,6 +9,18 @@
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
+/*
+  Every live saver, so that something which is about to end the page can write out
+  what is still sitting in a debounce.
+
+  The route screens already flush on `pagehide`, but that is a hope rather than a
+  guarantee: browsers do not promise to finish async work during unload. When the app
+  itself chooses the moment — applying a service worker update, which reloads the tab
+  — it can do better than hope, and `flushAll()` is how. The savers are store
+  singletons, five of them, so nothing accumulates here.
+*/
+const live = new Set<{ flush(): Promise<void>; readonly hasUnsavedWork: boolean }>();
+
 export class Autosave<T> {
   status = $state<SaveStatus>('idle');
   error = $state<string | null>(null);
@@ -26,7 +38,25 @@ export class Autosave<T> {
   constructor(
     private readonly write: (value: T) => Promise<void>,
     private readonly delayMs = 600
-  ) {}
+  ) {
+    live.add(this);
+  }
+
+  /**
+   * Writes out everything still debounced, anywhere in the app.
+   *
+   * Resolves once every saver has settled, so a caller can await it before doing
+   * something that ends the page. Failures are left on the individual savers, where
+   * `SaveIndicator` is already watching for them.
+   */
+  static async flushAll(): Promise<void> {
+    await Promise.all([...live].map((saver) => saver.flush()));
+  }
+
+  /** True when anything, anywhere, has work that has not reached storage. */
+  static get anyUnsavedWork(): boolean {
+    return [...live].some((saver) => saver.hasUnsavedWork);
+  }
 
   /** Marks `value` as already stored, without writing it. Call after a load. */
   accept(value: T): void {

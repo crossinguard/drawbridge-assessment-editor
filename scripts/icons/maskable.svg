@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Drawbridge">
+  <!--
+    The maskable variant, and the reason it has to be its own file.
+
+    Android applies its own shape — circle, squircle, teardrop, whatever the launcher
+    uses — and only guarantees the middle 80%. Handing it the ordinary icon crops the
+    road off both banks. So the background bleeds to all four edges with no rounded
+    corners of its own (the mask supplies those) and the mark is scaled to 72% about
+    the centre, which keeps every part of it inside the safe circle.
+
+    Kept out of static/ because it is a source file, not something the app serves.
+    static/icon-maskable-512.png and static/apple-touch-icon.png are rendered from it.
+  -->
+  <rect width="64" height="64" fill="#1b3a5c" />
+  <g transform="translate(32 32) scale(0.72) translate(-32 -32)">
+    <g fill="#f3f6fa">
+      <rect x="4" y="44" width="24" height="9" rx="2" />
+      <rect x="48" y="44" width="12" height="9" rx="2" />
+    </g>
+    <path
+      d="M30 45 L46 22"
+      stroke="#7fb2e5"
+      stroke-width="10"
+      stroke-linecap="round"
+      fill="none"
+    />
+  </g>
+</svg>

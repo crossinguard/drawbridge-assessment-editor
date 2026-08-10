@@ -2,6 +2,8 @@
   import '../app.css';
   import { onMount } from 'svelte';
   import { pwaInfo } from 'virtual:pwa-info';
+  import { pwa } from '$lib/stores/pwa.svelte';
+  import PwaNotices from '$lib/components/PwaNotices.svelte';
 
   let { children } = $props();
 
@@ -11,15 +13,11 @@
   // The markup comes from the plugin, not from user content.
   const webManifestLink = pwaInfo?.webManifest?.linkTag ?? '';
 
-  onMount(async () => {
-    // Registration is deliberately manual and deliberately `prompt` type (see
-    // vite.config.ts): this app holds the only copy of the user's work, so a
-    // service worker must never swap itself in mid-edit. Stage 11 turns the
-    // callbacks below into a real "a new version is ready" affordance; until
-    // then the update simply waits for the next cold load.
-    const { registerSW } = await import('virtual:pwa-register');
-    registerSW({ immediate: true });
-  });
+  // Registration is deliberately manual and deliberately `prompt` type (see
+  // vite.config.ts): this app holds the only copy of the user's work, so a service
+  // worker must never swap itself in mid-edit. `pwa.register()` also starts listening
+  // for the install prompt, and returns the teardown for those listeners.
+  onMount(() => pwa.register());
 </script>
 
 <svelte:head>
@@ -29,3 +27,5 @@
 <div class="min-h-screen bg-canvas text-text">
   {@render children()}
 </div>
+
+<PwaNotices />

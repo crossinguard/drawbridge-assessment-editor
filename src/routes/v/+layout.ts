@@ -3,8 +3,10 @@
 // root's `prerender = true` in force here would fail the build the moment a
 // [vaultId] route appears.
 //
-// Turning it off is safe because adapter-static writes `fallback: 'index.html'`
-// (see svelte.config.js) and Netlify serves that for any unmatched path — the
-// client router then resolves the real route. This is the standard SvelteKit SPA
-// shape and it is the piece people forget.
+// Turning it off is safe because adapter-static writes `fallback: '200.html'` (see
+// svelte.config.js) and that page is served for any unmatched path — by Netlify's
+// redirect online, and by the service worker's navigation fallback offline. The
+// client router then resolves the real route. Both halves have to point at the same
+// file: when they disagreed, a deep link served the prerendered root instead and
+// never booted.
 export const prerender = false;

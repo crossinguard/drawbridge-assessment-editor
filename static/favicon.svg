@@ -1,8 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Drawbridge">
-  <rect width="64" height="64" rx="12" fill="#1b3a5c" />
-  <!-- Two towers and a raised deck: a placeholder mark, replaced at Stage 11. -->
-  <rect x="12" y="16" width="7" height="34" rx="1.5" fill="#f3f6fa" />
-  <rect x="45" y="16" width="7" height="34" rx="1.5" fill="#f3f6fa" />
-  <rect x="19" y="44" width="26" height="6" rx="1.5" fill="#f3f6fa" />
-  <path d="M22 42 L36 22" stroke="#7fb2e5" stroke-width="5" stroke-linecap="round" />
+  <!--
+    The app mark: a roadway, one leaf raised, and the road resuming on the far bank.
+
+    Drawn for 16px first, because that is where it spends most of its life. Three
+    shapes is the budget at that size; nothing here is thinner than 9 units, an
+    eighth of the width. Earlier attempts had two towers, and two upright bars either
+    side of a diagonal read as a letter — И, H, A — at every size. The stub on the
+    right bank is load-bearing too: without it the leaf alone reads as a rising
+    arrow, which is the wrong promise for a tool that does not measure anything.
+
+    Source for icon-192.png and icon-512.png. scripts/icons/maskable.svg is the same
+    mark inset for Android's safe zone. CLAUDE.md records how they are rendered.
+  -->
+  <rect width="64" height="64" rx="14" fill="#1b3a5c" />
+  <g fill="#f3f6fa">
+    <rect x="4" y="44" width="24" height="9" rx="2" />
+    <rect x="48" y="44" width="12" height="9" rx="2" />
+  </g>
+  <path
+    d="M30 45 L46 22"
+    stroke="#7fb2e5"
+    stroke-width="10"
+    stroke-linecap="round"
+    fill="none"
+  />
 </svg>

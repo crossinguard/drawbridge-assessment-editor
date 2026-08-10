@@ -21,6 +21,23 @@ export default defineConfig({
       // <head>, so the plugin cannot inject its own script tag anyway; leaving this
       // on just emits a registerSW.js that nothing loads.
       injectRegister: null,
+      /*
+        Which page the service worker hands back for a URL it has no file for —
+        i.e. every route under /v, whose ids live in IndexedDB.
+
+        Without this the plugin defaults `navigateFallback` to `base` ('/') and
+        serves the PRERENDERED ROOT for a deep link. That document addresses its
+        assets relatively and derives `base` from `location`, so at /v/<id>/settings
+        it asks for /v/<id>/_app/… , gets four 404s, and never boots. A blank page,
+        no error banner, on the URL somebody bookmarked.
+
+        `200.html` is the adapter's fallback page and the only one written with
+        absolute asset paths, which is exactly why netlify.toml redirects to it.
+        `spa: true` is what gets it into the precache manifest: adapter-static writes
+        it after this plugin has already generated the service worker, so the plugin
+        takes its revision from _app/version.json instead of hashing the file.
+      */
+      kit: { adapterFallback: '200.html', spa: true },
       manifest: {
         name: 'Drawbridge',
         short_name: 'Drawbridge',
@@ -30,9 +47,17 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          // A separate file, not the same one relabelled. A maskable icon is cropped
+          // to whatever shape the launcher uses, so it needs the mark inset into the
+          // middle 80% — pointing this at icon-512.png took the road off both banks.
+          {
+            src: '/icon-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
         ]
       },
       workbox: {

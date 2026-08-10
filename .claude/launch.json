@@ -10,7 +10,7 @@
     {
       "name": "preview",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["preview", "--port", "4173"],
+      "runtimeArgs": ["preview"],
       "port": 4173
     }
   ]

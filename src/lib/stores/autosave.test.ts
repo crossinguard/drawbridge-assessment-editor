@@ -199,3 +199,47 @@ describe('Autosave timing', () => {
     expect(writes).toEqual([{ n: 2 }]);
   });
 });
+
+describe('flushing everything at once', () => {
+  /*
+    What stands between "a new version is ready" and losing the sentence somebody was
+    part-way through typing. Applying a service worker update reloads the tab, so the
+    PWA store writes out every live saver first rather than trusting the `pagehide`
+    handlers, which browsers are not obliged to let finish.
+  */
+  it('writes out savers that are still inside their debounce', async () => {
+    const first = recorder();
+    const second = recorder();
+
+    first.save.queue({ where: 'outcomes' });
+    second.save.queue({ where: 'items' });
+    expect(first.writes).toEqual([]);
+    expect(second.writes).toEqual([]);
+
+    await Autosave.flushAll();
+
+    expect(first.writes).toEqual([{ where: 'outcomes' }]);
+    expect(second.writes).toEqual([{ where: 'items' }]);
+  });
+
+  it('resolves only once the writes have actually landed', async () => {
+    // Awaiting something that resolves before the write does would make the whole
+    // guarantee decorative.
+    const writes: unknown[] = [];
+    const slow = new Autosave<unknown>(async (value) => {
+      await tick(20);
+      writes.push(value);
+    }, 5);
+
+    slow.queue({ n: 1 });
+    await Autosave.flushAll();
+    expect(writes).toEqual([{ n: 1 }]);
+  });
+
+  it('reports outstanding work across every saver', () => {
+    const { save } = recorder();
+    save.queue({ n: 1 });
+    expect(Autosave.anyUnsavedWork).toBe(true);
+    save.cancel();
+  });
+});

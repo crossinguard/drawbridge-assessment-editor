@@ -18,7 +18,8 @@ pnpm dev          # http://localhost:5173
 pnpm check        # svelte-kit sync + svelte-check — a required gate
 pnpm test         # vitest — a required gate
 pnpm build        # static site into build/
-pnpm preview      # serve the build; required to test the service worker (it does not register in dev)
+pnpm preview      # serve build/ the way Netlify does; required to test the service worker
+                  # (it does not register in dev). Rebuild and refresh; no restart needed.
 ```
 
 `pnpm check` and `pnpm test` are the **only** automated gates and both must be clean before a
@@ -187,6 +188,46 @@ It lives outside `domain/` because DOMPurify needs a DOM and domain has to stay 
 two differently (`undeclared` vs `explicit`) and a collection total depends on it, so the
 editors `delete` the property rather than writing `0` or `NaN`.
 
+### The PWA
+
+**Nothing activates a new service worker on its own.** `registerType: 'prompt'`, and the
+offer sits in a corner until the user takes it. This app holds the only copy of a term's work
+in one browser profile, so an update that swapped itself in would be reloading a tab somebody
+is typing into.
+
+**Accepting an update flushes every debounced save first.** `pwa.applyUpdate()` awaits
+`Autosave.flushAll()` before letting the worker take over, because the reload it triggers
+would otherwise race the `pagehide` handlers — and browsers do not promise to finish async
+work during unload. `Autosave` keeps a registry of live savers for exactly this;
+`autosave.test.ts` pins that `flushAll()` resolves only after the writes land.
+
+**`onNeedRefresh` does not fire for a worker that was already waiting.** It only reports one
+that reaches `waiting` while the page is watching, so a build installed during an earlier
+visit announces nothing — and since nothing self-activates, it would sit there forever while
+the user reloads and reloads. `onRegisteredSW` checks `registration.waiting` directly. Both
+paths are needed.
+
+**A failed registration is reported, not swallowed.** `onRegisterError`, plus a `catch` on
+the dynamic import. "Offline support silently did not happen" is the worst failure this app
+has, because the screen looks completely normal until the day there is no network — which is
+precisely how the relative-scope bug survived to Stage 11.
+
+**The maskable icon is its own file.** Android crops to whatever shape the launcher uses and
+guarantees only the middle 80%, so `static/icon-maskable-512.png` is rendered from
+`scripts/icons/maskable.svg`, which insets the mark to 72% and bleeds the background to the
+edges. Pointing the maskable entry at `icon-512.png` — which is what it used to do — takes
+the road off both banks.
+
+Icons are rendered from two committed SVG sources; there is no build step, because they
+change roughly never:
+
+```bash
+rsvg-convert -w 192 -h 192 static/favicon.svg -o static/icon-192.png
+rsvg-convert -w 512 -h 512 static/favicon.svg -o static/icon-512.png
+rsvg-convert -w 512 -h 512 scripts/icons/maskable.svg -o static/icon-maskable-512.png
+rsvg-convert -w 180 -h 180 scripts/icons/maskable.svg -o static/apple-touch-icon.png
+```
+
 ### Review screens
 
 **`stores/review.svelte.ts` gathers through `repository.exportVault`.** That method already
@@ -341,22 +382,21 @@ build such patterns with a script and verify the stored bytes.
 
 ## Where things stand
 
-Stages 0–9 are done: scaffold, domain, repository, vaults and settings, outcomes, items,
-export/import, rubrics, all eight item kinds, coverage and validation. See README.md for what
-that means in user terms, and `git log` for the reasoning behind each.
+Stages 0–11 are done: scaffold, domain, repository, vaults and settings, outcomes, items,
+export/import, rubrics, all eight item kinds, coverage and validation, Markdown and CSV in the
+bundle, and the PWA. See README.md for what that means in user terms, and `git log` for the
+reasoning behind each.
 
 Deliberately not built yet:
 
 | | |
 | --- | --- |
-| Stage 10 | Markdown and CSV in the export bundle. The reader already ignores unrecognised files, so adding them cannot break an older import. |
-| Stage 11 | PWA polish — offline verification, install prompt, update flow (the `registerType: 'prompt'` seam is in place), real icons. |
 | Stage 12 | The `/help` guide, written last against the shipped UI. |
 | Undo/redo | Brief §5. Cross-cutting; deferred until the item model settled, which it now has. |
 | Command palette | Brief §5, `Ctrl/Cmd+K`. Also cross-cutting. |
 | Markdown sanitiser | Decided: DOMPurify with an allow-list. Not named by the brief; see `src/lib/markdown.ts`. |
 | Netlify deploy | The user's action, not the agent's. Verify the PWA locally instead. |
-| App icons | Placeholders. The real ones land at Stage 11. |
+| Update checks in a long-lived tab | The app only looks for a new build on load. A tab left open for a week will not notice one until it is reloaded. A throttled check on `visibilitychange` is the obvious addition; it was not asked for. |
 
 ## Stack notes and traps
 
@@ -371,11 +411,33 @@ embedded editor or third-party widget would need a parallel theming path and wou
 `var()` at build time and the utilities freeze to the light palette.
 
 **Root `prerender = true`, but `prerender = false` under `/v`.** Vault ids live in IndexedDB
-and cannot be enumerated at build time. `adapter-static` with `fallback: 'index.html'` serves
+and cannot be enumerated at build time. `adapter-static` with `fallback: '200.html'` serves
 those routes and the client router resolves them. Removing either half breaks deep links.
+
+**`paths.relative = false`, and it is load-bearing.** SvelteKit's default writes `./_app/…`
+into every prerendered page and hands Vite a base of `./`, which broke two things silently at
+once: the service worker registered `./sw.js` with scope `./`, so opening the app at
+`/v/<id>` registered nothing at all and the offline-first app had no offline support unless
+you arrived at the root first; and the prerendered root, served for a deeper URL, asked for
+`/v/<id>/_app/…` and never booted. The cost is that the app must live at the root of its
+domain, which it does.
+
+**Both fallback paths must name the same file.** Netlify redirects unmatched paths to
+`200.html`; the service worker's `navigateFallback` has to as well, which is what
+`kit: { adapterFallback: '200.html', spa: true }` in `vite.config.ts` is for. Left at its
+default the plugin falls back to `/` — the *prerendered root*, which is a different document
+from the SPA fallback — and every deep link opens blank once the worker is installed. `spa:
+true` is what gets `200.html` into the precache at all: adapter-static writes it after the
+PWA plugin has already generated the worker.
 
 **The service worker must be served `must-revalidate`** (`netlify.toml`), or an install gets
 pinned to a stale shell and stops picking up new builds.
+
+**`pnpm preview` is `scripts/serve-build.js`, not `vite preview`.** SvelteKit's preview
+server re-renders the SPA fallback per request with asset paths relative to the depth of the
+URL asked for, so it hides exactly the class of bug above. The replacement is a plain static
+server with netlify.toml's two rules — serve the file if it exists, otherwise `200.html`;
+never cache `sw.js` — and it reads from disk per request, so a rebuild needs only a refresh.
 
 **`$effect` tracks every reactive read in its body, including ones you only meant to *use*.**
 An effect that reads state in order to *construct* something will re-run on every change to

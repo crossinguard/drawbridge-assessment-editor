@@ -20,10 +20,12 @@ pnpm dev
 | `pnpm check` | svelte-check with strict TypeScript — a required gate |
 | `pnpm test` | vitest — a required gate |
 | `pnpm build` | static site into `build/` |
-| `pnpm preview` | serves the build; **required** to test the service worker, which does not register in dev |
+| `pnpm preview` | serves `build/` the way Netlify does; **required** to test the service worker, which does not register in dev |
 
-Note: `vite preview` caches its file listing at startup, so restart it after every `pnpm
-build` or it will 404 the newly hashed bundles.
+`pnpm preview` is a small static server (`scripts/serve-build.js`) rather than `vite
+preview`. SvelteKit's own preview re-renders the SPA fallback per request, which hides the
+service-worker problems this is meant to catch. Rebuild and refresh; it reads from disk each
+time, so there is nothing to restart.
 
 ## Where the data lives
 
@@ -47,8 +49,8 @@ Under construction, following the staged build order in
 - [x] Stage 8 — discussion prompts, essays, groups and stimuli
 - [x] Stage 9 — coverage and validation
 - [x] Stage 10 — Markdown and CSV in the export bundle
-- [ ] Stage 11 — PWA polish (next)
-- [ ] Stage 12 — the in-app guide
+- [x] Stage 11 — PWA: offline, installable, update prompt, icons
+- [ ] Stage 12 — the in-app guide (next)
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
@@ -68,6 +70,11 @@ import reads. Beside it sit the readable views: each assessment as a Markdown do
 its questions, key and rationale; each rubric as a criteria × levels table; the outcome tree
 as a nested list; and two spreadsheets, `items.csv` and `coverage.csv`. Questions are
 numbered the same way throughout, so question 4 in the document is row `4.` in the CSV.
+
+Drawbridge installs as an app and runs with no network at all — open it, author, save,
+export, offline throughout. When a new version has been deployed it says so in the corner
+and waits: nothing reloads until you say so, and accepting writes out anything still being
+saved before it does.
 
 Not built yet, both listed in the brief's UI expectations: undo/redo across structured
 edits, and the Ctrl/Cmd+K command palette.
