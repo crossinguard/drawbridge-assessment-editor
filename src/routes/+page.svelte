@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { vaultList } from '$lib/stores/vaults.svelte';
   import { storage } from '$lib/stores/storage.svelte';
+  import { backup } from '$lib/stores/backup.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import TextInput from '$lib/components/ui/TextInput.svelte';
   import Field from '$lib/components/ui/Field.svelte';
@@ -15,6 +16,18 @@
   let code = $state('');
   let term = $state('');
   let busy = $state(false);
+  let sampleError = $state<string | null>(null);
+
+  async function loadSample() {
+    sampleError = null;
+    const outcome = await backup.loadSample();
+    if (outcome.fatal || !outcome.vaultId) {
+      sampleError = outcome.fatal ?? 'The sample course could not be loaded.';
+      return;
+    }
+    await vaultList.load();
+    await goto(`/v/${outcome.vaultId}`);
+  }
 
   onMount(async () => {
     // First run is where persistence has to be requested: Firefox shows a prompt, and
@@ -128,7 +141,23 @@
           </div>
         </form>
       {:else}
-        <Button variant="primary" onclick={() => (creating = true)}>+ New course</Button>
+        <div class="flex flex-wrap items-center gap-2">
+          <Button variant="primary" onclick={() => (creating = true)}>+ New course</Button>
+          <!--
+            Beside "new course" rather than beside "import", because it is the answer to
+            "what does this thing do", not to "I have a file".
+          -->
+          <Button disabled={backup.busy} onclick={loadSample}>
+            {backup.busy ? 'Loading…' : 'Load a sample course'}
+          </Button>
+        </div>
+        <p class="mt-2 text-xs text-text-muted">
+          A worked statistics course — outcomes, a quiz, an exam, a discussion and a
+          rubric-scored task. It is an ordinary course: edit it, export it, delete it.
+        </p>
+        {#if sampleError}
+          <p class="mt-2 text-xs text-danger">{sampleError}</p>
+        {/if}
       {/if}
     </section>
 

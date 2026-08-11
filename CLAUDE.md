@@ -171,6 +171,23 @@ files can be imported and tested. The store tests are integration tests over the
 repository against `fake-indexeddb` — the bugs above live in how the store drives the saver,
 which a unit test of either half cannot see.
 
+### The sample course
+
+**`domain/sample.ts` is a module, not a shipped zip.** A binary in `static/` is unreviewable
+in a diff and goes stale *silently* against a schema change; a module stops compiling, which
+is the whole reason to write it this way. It reuses `defaults.ts`, never `fixtures.ts` —
+fixtures are test-only and build the smallest thing that exercises a rule, which is the
+opposite of what a demo needs.
+
+**It loads through `importVault(_, 'new')`**, so it inherits the id remapping and gives two
+independent courses when loaded twice. It is an ordinary vault the user can edit and delete,
+not a shared demo.
+
+**It contains a deliberately unfinished item and one uncovered outcome.** `sample.test.ts`
+pins both halves: no `error`-severity issue anywhere (a demo that opens red teaches the wrong
+lesson about a validator that never blocks), and at least one issue (a clean bill of health
+leaves the notes panel and the coverage screen looking broken-because-empty).
+
 ### Controls
 
 **Every icon button goes through `ui/IconButton.svelte`, and its `aria-label` is a required
@@ -444,8 +461,8 @@ behind each.
 controls and focus (13), a loadable sample course (14), per-criterion rubric points (15),
 shared rubric tails (16), collection-kind capabilities and the task/item split (17), a
 Markdown toolbar (18), cloning a course (19), moving items between collections (20), a write
-funnel (21), the session journal and undo (22), and a command palette (23). **Stage 13 is
-done.** `SCHEMA_VERSION` bumps at 15 and 16 and nowhere else.
+funnel (21), the session journal and undo (22), and a command palette (23). **Stages 13 and
+14 are done.** `SCHEMA_VERSION` bumps at 15 and 16 and nowhere else.
 
 Deliberately not built yet:
 

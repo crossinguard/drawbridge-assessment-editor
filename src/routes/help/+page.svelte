@@ -143,6 +143,14 @@
           before you move on — an assessment can sit half-written for as long as you
           like.
         </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          If you would rather see one already built,
+          <strong class="font-medium text-text">Load a sample course</strong> on the home
+          screen makes a worked statistics course — outcomes, a quiz, an exam, a discussion
+          and a rubric-scored task. It is an ordinary course: edit it, export it, delete it.
+          It also opens with a couple of deliberate loose ends, so the notes panel and the
+          coverage gap have something real in them.
+        </p>
         <ol class="flex max-w-prose list-decimal flex-col gap-2 ps-5 text-sm marker:text-text-muted">
           <li>
             <strong class="font-medium">Create a course.</strong> Name, code and an optional

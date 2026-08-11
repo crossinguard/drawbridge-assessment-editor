@@ -114,6 +114,44 @@ class BackupStore {
     }
   }
 
+  /**
+   * Loads the worked example as a new course.
+   *
+   * Goes through `importVault(_, 'new')` rather than writing the records itself, so it
+   * inherits the id remapping and the counts that the round-trip tests already cover —
+   * and so loading it twice gives two independent courses rather than a collision.
+   *
+   * The module is imported dynamically because it is ~15KB of prose that most sessions
+   * never ask for, and it has no business in the initial bundle.
+   */
+  async loadSample(): Promise<ImportOutcome> {
+    this.busy = true;
+    this.error = null;
+    try {
+      const { sampleSnapshot } = await import('$lib/domain/sample');
+      const imported = await repository.importVault(sampleSnapshot(), 'new');
+      return {
+        vaultId: imported.vaultId,
+        mode: 'new',
+        mergedIntoExisting: false,
+        counts: imported.counts,
+        problems: [],
+        fatal: null
+      };
+    } catch (cause) {
+      return {
+        vaultId: null,
+        mode: 'new',
+        mergedIntoExisting: false,
+        counts: null,
+        problems: [],
+        fatal: describe(cause)
+      };
+    } finally {
+      this.busy = false;
+    }
+  }
+
   async importFile(file: File, mode: ImportMode): Promise<ImportOutcome> {
     this.busy = true;
     this.error = null;

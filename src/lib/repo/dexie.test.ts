@@ -11,6 +11,8 @@ import {
   aVault,
   levels
 } from '$lib/domain/fixtures';
+import { sampleSnapshot } from '$lib/domain/sample';
+import { flattenItems } from '$lib/domain/points';
 import type { VaultSnapshot } from '$lib/domain/schema';
 
 /*
@@ -331,5 +333,41 @@ describe('persistence across connections', () => {
     const second = new DexieRepository(name);
     expect(await second.vaults.get(vault.id)).toEqual(vault);
     await second.destroy();
+  });
+});
+
+describe('the sample course', () => {
+  it('loads twice as two independent courses', async () => {
+    /*
+      The sample goes in through `importVault(_, 'new')` precisely so it inherits the id
+      remapping. Exercised here against real storage rather than only against the
+      snapshot, because the failure — a second load overwriting the first — is one that
+      only shows up once records share a key.
+    */
+    const repo = new DexieRepository(`drawbridge-sample-${newId()}`);
+    try {
+      const first = await repo.importVault(sampleSnapshot(), 'new');
+      const second = await repo.importVault(sampleSnapshot(), 'new');
+
+      expect(first.vaultId).not.toBe(second.vaultId);
+      expect(await repo.vaults.list()).toHaveLength(2);
+
+      const left = await repo.exportVault(first.vaultId);
+      const right = await repo.exportVault(second.vaultId);
+
+      // Same shape, no shared ids anywhere.
+      expect(right.outcomes).toHaveLength(left.outcomes.length);
+      expect(right.items).toHaveLength(left.items.length);
+      const leftIds = new Set(flattenItems(left.items).map((item) => item.id));
+      for (const item of flattenItems(right.items)) expect(leftIds.has(item.id)).toBe(false);
+
+      // And each one still resolves its own references after remapping.
+      const outcomeIds = new Set(right.outcomes.map((outcome) => outcome.id));
+      for (const item of flattenItems(right.items)) {
+        for (const id of item.outcomeIds) expect(outcomeIds.has(id)).toBe(true);
+      }
+    } finally {
+      await repo.destroy();
+    }
   });
 });
