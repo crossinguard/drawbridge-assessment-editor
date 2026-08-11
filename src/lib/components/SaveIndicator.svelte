@@ -34,17 +34,27 @@
   );
 </script>
 
-<div class="flex items-center gap-1.5 text-xs {tone}" role="status" aria-live="polite">
-  <span
-    class="inline-block h-1.5 w-1.5 rounded-full"
-    class:bg-success={saver.status === 'saved'}
-    class:bg-danger={saver.status === 'error'}
-    class:bg-warning={saver.status === 'pending' || saver.status === 'saving'}
-    class:bg-border-strong={saver.status === 'idle'}
-  ></span>
-  <span>{label}</span>
-</div>
+<!--
+  The error lives INSIDE the live region, not beside it.
 
-{#if saver.status === 'error' && saver.error}
-  <p class="text-xs text-danger">{saver.error}</p>
-{/if}
+  It used to sit outside, which meant a screen reader announced "Not saved" and then
+  nothing — the one message that says what actually went wrong was the one message never
+  read out. In an app with no save button, where this component is the only report that
+  a term's work reached disk, that was the wrong thing to leave unspoken.
+-->
+<div class="flex flex-col gap-0.5" role="status" aria-live="polite">
+  <div class="flex items-center gap-1.5 text-xs {tone}">
+    <span
+      class="inline-block h-1.5 w-1.5 rounded-full"
+      class:bg-success={saver.status === 'saved'}
+      class:bg-danger={saver.status === 'error'}
+      class:bg-warning={saver.status === 'pending' || saver.status === 'saving'}
+      class:bg-border-strong={saver.status === 'idle'}
+    ></span>
+    <span>{label}</span>
+  </div>
+
+  {#if saver.status === 'error' && saver.error}
+    <p class="text-xs text-danger">{saver.error}</p>
+  {/if}
+</div>

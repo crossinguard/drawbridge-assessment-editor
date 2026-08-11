@@ -119,7 +119,7 @@
                   title={collection.title}
                 >
                   <span class="block truncate">{collection.title || 'Untitled'}</span>
-                  <span class="block text-[10px] font-normal text-text-muted">
+                  <span class="block text-3xs font-normal text-text-muted">
                     {kindLabel(collection.kind)}
                   </span>
                 </a>
@@ -168,7 +168,7 @@
                     <span aria-label="not assessed">·</span>
                   {:else}
                     <span class="text-sm">{cell.itemCount}</span>
-                    <span class="ml-1 text-[10px] text-text-muted">{cell.points}pt</span>
+                    <span class="ml-1 text-3xs text-text-muted">{cell.points}pt</span>
                   {/if}
                 </td>
               {/each}
@@ -176,7 +176,7 @@
               <td class="border-l border-border-subtle p-2 text-center">
                 {#if outcomeTotal}
                   <span class="text-sm font-medium">{outcomeTotal.itemCount}</span>
-                  <span class="ml-1 text-[10px] text-text-muted">{outcomeTotal.points}pt</span>
+                  <span class="ml-1 text-3xs text-text-muted">{outcomeTotal.points}pt</span>
                 {:else if isLeaf}
                   <span class="text-xs text-warning">none</span>
                 {:else}
@@ -203,7 +203,7 @@
               <td class="border-l border-border-subtle p-2 text-center">
                 {#if total}
                   <span class="text-sm font-medium">{total.itemCount}</span>
-                  <span class="ml-1 text-[10px] text-text-muted">{total.points}pt</span>
+                  <span class="ml-1 text-3xs text-text-muted">{total.points}pt</span>
                 {:else}
                   <span class="text-xs text-text-muted">·</span>
                 {/if}

@@ -142,3 +142,41 @@ describe('src/lib dependency direction', () => {
     expect(violations).toEqual([]);
   });
 });
+
+describe('control conventions', () => {
+  it('gives every button an explicit type', () => {
+    /*
+      A bare <button> defaults to `type="submit"`. Every one of these sits outside a
+      form today, so nothing is broken — but the day one lands inside a form it submits
+      it, and the symptom is a page that reloads instead of doing what was asked.
+
+      `ui/IconButton.svelte` sets the type itself and does not let a caller override it,
+      which is why call sites do not have to repeat it.
+    */
+    /*
+      Comments are blanked rather than removed, so the offsets that produce the line
+      number still line up with the original file. Several of these files explain the
+      rule in prose that names the element, and a check that flagged its own
+      documentation would be worse than no check.
+    */
+    const withoutComments = (text: string) =>
+      text
+        .replace(/<!--[\s\S]*?-->/g, (found) => found.replace(/[^\n]/g, ' '))
+        .replace(/\/\*[\s\S]*?\*\//g, (found) => found.replace(/[^\n]/g, ' '));
+
+    const offenders = sourceFilesUnder(join(libDir, 'components'))
+      .concat(sourceFilesUnder(join(libDir, '..', 'routes')))
+      .flatMap((file) => {
+        const text = withoutComments(readFileSync(file, 'utf8'));
+        return [...text.matchAll(/<button\b[^>]*>/gs)]
+          // `type="button"` or Svelte's `{type}` shorthand, which Button.svelte uses to
+          // default the attribute while still letting a form say `type="submit"`.
+          .filter((match) => !/\stype=|\{type\}/.test(match[0]))
+          .map(
+            (match) => `${relative(libDir, file)}:${text.slice(0, match.index).split('\n').length}`
+          );
+      });
+
+    expect(offenders).toEqual([]);
+  });
+});

@@ -6,6 +6,8 @@
   import { items as itemStore } from '$lib/stores/items.svelte';
   import ItemBody from './ItemBody.svelte';
   import PartsEditor from './PartsEditor.svelte';
+  import IconButton from '$lib/components/ui/IconButton.svelte';
+  import { CONTROL } from '$lib/components/ui/styles';
 
   interface Props {
     item: Item;
@@ -37,7 +39,7 @@
     onFocused
   }: Props = $props();
 
-  let stemField = $state<HTMLElement | null>(null);
+  let body = $state<ReturnType<typeof ItemBody> | null>(null);
   let expanded = $state(true);
 
   const allKinds = ItemKindSchema.options as readonly ItemKind[];
@@ -51,9 +53,14 @@
         : null
   );
 
+  /*
+    A newly added item gets the caret. Asks the body to focus its stem rather than
+    hunting the DOM for a textarea — there is more than one field down there, and
+    "the first textarea" is only accidentally the right one.
+  */
   $effect(() => {
-    if (focusId === item.id && stemField) {
-      stemField.querySelector('textarea')?.focus();
+    if (focusId === item.id && body) {
+      body.focusStem();
       onFocused();
     }
   });
@@ -61,34 +68,25 @@
   function edited() {
     itemStore.queueFieldSave(item.id);
   }
-
-  const control =
-    'rounded border border-border-subtle bg-surface px-2 py-1 text-xs text-text ' +
-    'focus:border-border-strong focus:outline-2 focus:outline-accent';
 </script>
 
 <article
-  bind:this={stemField}
   class="group rounded-lg border bg-surface transition-colors
          {worst === 'error' ? 'border-danger/40' : 'border-border-subtle'}"
   aria-label="Item {position + 1}"
 >
   <header class="flex flex-wrap items-center gap-2 border-b border-border-subtle px-3 py-2">
-    <button
-      type="button"
-      class="cursor-pointer rounded px-1 text-xs text-text-muted hover:text-text
-             focus-visible:outline-2 focus-visible:outline-accent"
+    <IconButton
+      name={expanded ? 'chevron-down' : 'chevron-right'}
       onclick={() => (expanded = !expanded)}
       aria-expanded={expanded}
       aria-label={expanded ? 'Collapse item' : 'Expand item'}
-    >
-      {expanded ? '▾' : '▸'}
-    </button>
+    />
 
     <span class="font-mono text-xs text-text-muted">{position + 1}</span>
 
     <select
-      class={control}
+      class={CONTROL}
       value={item.kind}
       onchange={(event) => void itemStore.setKind(item.id, event.currentTarget.value as ItemKind)}
       aria-label="Item kind"
@@ -104,7 +102,7 @@
       <input
         type="number"
         step="any"
-        class="{control} w-16"
+        class="{CONTROL} w-16"
         value={item.points ?? ''}
         oninput={(event) => {
           const raw = event.currentTarget.value;
@@ -127,7 +125,7 @@
     {/if}
 
     <select
-      class={control}
+      class={CONTROL}
       value={item.status}
       onchange={(event) => {
         item.status = event.currentTarget.value;
@@ -143,7 +141,7 @@
 
     {#if sections.length > 0}
       <select
-        class={control}
+        class={CONTROL}
         value={item.sectionId ?? ''}
         onchange={(event) =>
           void itemStore.setSection(item.id, event.currentTarget.value || undefined)}
@@ -156,57 +154,43 @@
       </select>
     {/if}
 
-    <div class="ml-auto flex items-center gap-0.5">
-      <button
-        type="button"
-        class="cursor-pointer rounded px-1.5 py-1 text-xs text-text-muted hover:text-text
-               disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-accent"
+    <div class="ml-auto flex items-center gap-1">
+      <IconButton
+        name="up"
         title="Move up"
         aria-label="Move item up"
         disabled={position === 0}
         onclick={() => void itemStore.move(item.id, -1)}
-      >
-        ↑
-      </button>
-      <button
-        type="button"
-        class="cursor-pointer rounded px-1.5 py-1 text-xs text-text-muted hover:text-text
-               disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-accent"
+      />
+      <IconButton
+        name="down"
         title="Move down"
         aria-label="Move item down"
         disabled={position === total - 1}
         onclick={() => void itemStore.move(item.id, 1)}
-      >
-        ↓
-      </button>
-      <button
-        type="button"
-        class="cursor-pointer rounded px-1.5 py-1 text-xs text-text-muted hover:text-text
-               focus-visible:outline-2 focus-visible:outline-accent"
+      />
+      <IconButton
+        name="duplicate"
         title="Duplicate"
         aria-label="Duplicate item"
         onclick={() => void itemStore.duplicate(item.id)}
-      >
-        ⧉
-      </button>
-      <button
-        type="button"
-        class="cursor-pointer rounded px-1.5 py-1 text-xs text-text-muted hover:text-danger
-               focus-visible:outline-2 focus-visible:outline-accent"
+      />
+      <IconButton
+        name="close"
+        tone="danger"
         title="Delete"
         aria-label="Delete item"
         onclick={() => {
           if (confirm('Delete this item? This cannot be undone.')) void itemStore.remove(item.id);
         }}
-      >
-        ✕
-      </button>
+      />
     </div>
   </header>
 
   {#if expanded}
     <div class="flex flex-col gap-3 px-3 py-3">
       <ItemBody
+        bind:this={body}
         {item}
         {outcomes}
         {rubrics}

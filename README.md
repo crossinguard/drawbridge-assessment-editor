@@ -52,7 +52,9 @@ Under construction, following the staged build order in
 - [x] Stage 11 — PWA: offline, installable, update prompt, icons
 - [x] Stage 12 — the in-app guide at `/help`
 
-That is the staged build finished.
+That is the staged build finished. Work continues past it, against a plan of its own:
+
+- [x] Stage 13 — controls and focus: real hit targets, drawn icons, keyboard fixes
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option

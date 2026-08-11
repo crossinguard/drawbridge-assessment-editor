@@ -1,4 +1,6 @@
 <script lang="ts">
+  import IconButton from '$lib/components/ui/IconButton.svelte';
+
   /*
     Seeded straight from the DOM rather than through an $effect: app.html resolves the
     theme before first paint, so this reads a settled value once. An effect here would
@@ -19,12 +21,15 @@
   }
 </script>
 
-<button
-  class="cursor-pointer rounded-md border border-border-subtle bg-surface px-2 py-1 text-xs
-         text-text-muted transition-colors hover:border-border-strong hover:text-text
-         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+<!--
+  The label is the action, not the state. "Switch to dark theme" tells you what pressing
+  it does; a moon glyph alone told a screen reader nothing at all, since this was the one
+  button in the app with neither an aria-label nor text.
+-->
+<IconButton
+  name={theme === 'light' ? 'moon' : 'sun'}
+  class="border border-border-subtle bg-surface hover:border-border-strong"
   onclick={toggle}
   title="Switch to {theme === 'light' ? 'dark' : 'light'} theme"
->
-  {theme === 'light' ? '☾' : '☀'}
-</button>
+  aria-label="Switch to {theme === 'light' ? 'dark' : 'light'} theme"
+/>

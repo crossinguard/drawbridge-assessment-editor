@@ -6,6 +6,7 @@
   import OptionsEditor from './OptionsEditor.svelte';
   import OutcomePicker from './OutcomePicker.svelte';
   import DiscussionSpecEditor from './DiscussionSpecEditor.svelte';
+  import { CONTROL, LABEL } from '$lib/components/ui/styles';
 
   interface Props {
     item: Item;
@@ -30,12 +31,16 @@
   const isStimulus = $derived(item.kind === 'stimulus');
   const isGroup = $derived(item.kind === 'group');
 
-  const control =
-    'rounded border border-border-subtle bg-surface px-2 py-1 text-xs text-text ' +
-    'focus:border-border-strong focus:outline-2 focus:outline-accent';
+  let stemField = $state<ReturnType<typeof MarkdownField> | null>(null);
+
+  /** Lets ItemCard put the caret in the stem without knowing what the stem is made of. */
+  export function focusStem(): void {
+    stemField?.focus();
+  }
 </script>
 
 <MarkdownField
+  bind:this={stemField}
   bind:value={item.stem}
   label={isStimulus ? 'Passage' : isGroup ? 'Shared instructions' : 'Stem'}
   hideLabel={!isStimulus && !isGroup}
@@ -70,7 +75,7 @@
 
   {#if item.kind === 'shortAnswer'}
     <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium tracking-wide text-text-muted uppercase">Also accept</span>
+      <span class={LABEL}>Also accept</span>
       <input
         class="rounded border border-border-subtle bg-surface px-2 py-1 text-sm
                focus:border-border-strong focus:outline-2 focus:outline-accent"
@@ -118,7 +123,7 @@
     <label class="flex flex-wrap items-center gap-2 text-xs text-text-muted">
       <span class="font-medium tracking-wide uppercase">Rubric</span>
       <select
-        class={control}
+        class={CONTROL}
         value={item.rubricId ?? ''}
         onchange={(event) => {
           const next = event.currentTarget.value;
@@ -144,7 +149,7 @@
       <label class="flex flex-wrap items-center gap-2 text-xs text-text-muted">
         <span class="font-medium tracking-wide uppercase">Reads from</span>
         <select
-          class={control}
+          class={CONTROL}
           value={item.stimulusId ?? ''}
           onchange={(event) => {
             const next = event.currentTarget.value;

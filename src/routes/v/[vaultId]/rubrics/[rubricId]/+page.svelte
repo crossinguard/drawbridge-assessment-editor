@@ -9,6 +9,7 @@
   import { outcomes } from '$lib/stores/outcomes.svelte';
   import { count } from '$lib/text';
   import Button from '$lib/components/ui/Button.svelte';
+  import IconButton from '$lib/components/ui/IconButton.svelte';
   import SaveIndicator from '$lib/components/SaveIndicator.svelte';
   import OutcomePicker from '$lib/components/items/OutcomePicker.svelte';
 
@@ -184,48 +185,43 @@
                       oninput={() => rubrics.queueSave()}
                       aria-label="Level points"
                     />
-                    <span class="text-[10px] text-text-muted">pt</span>
-                    <button
-                      type="button"
-                      class="ml-auto cursor-pointer rounded px-1 text-[11px] text-text-muted
-                             hover:text-text disabled:opacity-30"
+                    <span class="text-3xs text-text-muted">pt</span>
+                    <IconButton
+                      name="left"
+                      class="ml-auto"
                       title="Move left"
                       aria-label="Move level left"
                       disabled={rubric.levels[0]?.id === level.id}
-                      onclick={() => rubrics.moveLevel(level.id, -1)}>←</button
-                    >
-                    <button
-                      type="button"
-                      class="cursor-pointer rounded px-1 text-[11px] text-text-muted
-                             hover:text-text disabled:opacity-30"
+                      onclick={() => rubrics.moveLevel(level.id, -1)}
+                    />
+                    <IconButton
+                      name="right"
                       title="Move right"
                       aria-label="Move level right"
                       disabled={rubric.levels[rubric.levels.length - 1]?.id === level.id}
-                      onclick={() => rubrics.moveLevel(level.id, 1)}>→</button
-                    >
-                    <button
-                      type="button"
-                      class="cursor-pointer rounded px-1 text-[11px] text-text-muted hover:text-danger"
+                      onclick={() => rubrics.moveLevel(level.id, 1)}
+                    />
+                    <IconButton
+                      name="close"
+                      tone="danger"
                       title="Remove level"
                       aria-label="Remove level"
                       onclick={() => {
                         if (confirm('Remove this level and everything written in its column?'))
                           rubrics.removeLevel(level.id);
-                      }}>✕</button
-                    >
+                      }}
+                    />
                   </div>
                 </div>
               </th>
             {/each}
             <th class="w-10 border-l border-border-subtle p-2 align-bottom">
-              <button
-                type="button"
-                class="cursor-pointer rounded border border-dashed border-border-subtle px-1.5
-                       py-1 text-xs text-text-muted hover:border-border-strong hover:text-text"
+              <IconButton
+                name="plus"
                 title="Add level"
                 aria-label="Add level"
-                onclick={() => rubrics.addLevel()}>+</button
-              >
+                onclick={() => rubrics.addLevel()}
+              />
             </th>
           </tr>
         </thead>
@@ -244,7 +240,7 @@
                     placeholder="Clarity"
                     aria-label="Criterion title"
                   />
-                  <p class="text-[11px] text-text-muted">
+                  <p class="text-2xs text-text-muted">
                     worth up to {criterionMax(criterion, rubric.levels)} pt
                   </p>
 
@@ -257,32 +253,31 @@
                     }}
                   />
 
-                  <div class="flex items-center gap-0.5">
-                    <button
-                      type="button"
-                      class="cursor-pointer rounded px-1 text-[11px] text-text-muted
-                             hover:text-text disabled:opacity-30"
+                  <div class="flex items-center gap-1">
+                    <IconButton
+                      name="up"
+                      title="Move up"
                       aria-label="Move criterion up"
                       disabled={index === 0}
-                      onclick={() => rubrics.moveCriterion(criterion.id, -1)}>↑</button
-                    >
-                    <button
-                      type="button"
-                      class="cursor-pointer rounded px-1 text-[11px] text-text-muted
-                             hover:text-text disabled:opacity-30"
+                      onclick={() => rubrics.moveCriterion(criterion.id, -1)}
+                    />
+                    <IconButton
+                      name="down"
+                      title="Move down"
                       aria-label="Move criterion down"
                       disabled={index === orderedCriteria.length - 1}
-                      onclick={() => rubrics.moveCriterion(criterion.id, 1)}>↓</button
-                    >
-                    <button
-                      type="button"
-                      class="cursor-pointer rounded px-1 text-[11px] text-text-muted hover:text-danger"
+                      onclick={() => rubrics.moveCriterion(criterion.id, 1)}
+                    />
+                    <IconButton
+                      name="close"
+                      tone="danger"
+                      title="Remove criterion"
                       aria-label="Remove criterion"
                       onclick={() => {
                         if (confirm('Remove this criterion and its row?'))
                           rubrics.removeCriterion(criterion.id);
-                      }}>✕</button
-                    >
+                      }}
+                    />
                   </div>
                 </div>
               </td>

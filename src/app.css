@@ -63,7 +63,26 @@
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+
+  /*
+    Two steps below Tailwind's `text-xs`, for the dense control rows in item headers and
+    the rubric grid. They replace 28 hand-written arbitrary sizes in square brackets,
+    none of which declared a line-height — so each one inherited the unitless 1.5 from
+    preflight and produced a line box a fraction taller than the font, which is part of
+    why rows of controls did not line up. Naming them fixes the height too.
+  */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-3xs: 0.625rem;
+  --text-3xs--line-height: 0.875rem;
 }
+
+/*
+  The hit-target size is not a token here on purpose — it lives in
+  `components/ui/styles.ts` as `HIT`, beside the focus ring and disabled treatment it is
+  always used with. Splitting one control recipe across a stylesheet and a module is how
+  half of it gets updated.
+*/
 
 html {
   color-scheme: light;

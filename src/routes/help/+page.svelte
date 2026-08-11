@@ -266,8 +266,9 @@
         <p class="max-w-prose text-sm text-text-muted">
           <strong class="font-medium text-text">An item belongs to exactly one collection.</strong>
           There is no shared pool, and there is no way to move an item to another collection —
-          <span class="font-mono text-xs">⧉</span> duplicates it where it is. That is the
-          intended shape rather than a gap: two copies are meant to diverge.
+          the <strong class="font-medium text-text">Duplicate</strong> button in an item's
+          header copies it where it is. That is the intended shape rather than a gap: two
+          copies are meant to diverge.
         </p>
         <p class="max-w-prose text-sm text-text-muted">
           <strong class="font-medium text-text">Sections</strong> are optional headings —

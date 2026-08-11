@@ -1,6 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { countBySeverity, sortIssues, type Issue } from '$lib/domain/validate';
+  import Icon from '$lib/components/ui/Icon.svelte';
+  import { FOCUS_RING } from '$lib/components/ui/styles';
 
   interface Props {
     issues: Issue[];
@@ -37,7 +39,7 @@
     <button
       type="button"
       class="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-2.5 text-left
-             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+             {FOCUS_RING}"
       onclick={() => (open = !open)}
       aria-expanded={open}
     >
@@ -49,7 +51,7 @@
           {#if counts.info}<span>{counts.info} suggestion{counts.info === 1 ? '' : 's'}</span>{/if}
         </span>
       </span>
-      <span aria-hidden="true" class="text-text-muted">{open ? '▾' : '▸'}</span>
+      <Icon name={open ? 'chevron-down' : 'chevron-right'} class="text-text-muted" />
     </button>
 
     {#if open}

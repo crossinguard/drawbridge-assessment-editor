@@ -12,6 +12,7 @@
   import { backup } from '$lib/stores/backup.svelte';
   import { rubrics } from '$lib/stores/rubrics.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import IconButton from '$lib/components/ui/IconButton.svelte';
   import SaveIndicator from '$lib/components/SaveIndicator.svelte';
   import ProblemsPanel from '$lib/components/ProblemsPanel.svelte';
   import ItemCard from '$lib/components/items/ItemCard.svelte';
@@ -275,36 +276,27 @@
             oninput={() => collections.queueSave()}
             aria-label="Section title"
           />
-          <button
-            type="button"
-            class="cursor-pointer rounded px-1.5 py-1 text-xs text-text-muted hover:text-text
-                   disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-accent"
+          <IconButton
+            name="up"
+            title="Move up"
             aria-label="Move section up"
             disabled={index === 0}
             onclick={() => collections.moveSection(section.id, -1)}
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            class="cursor-pointer rounded px-1.5 py-1 text-xs text-text-muted hover:text-text
-                   disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-accent"
+          />
+          <IconButton
+            name="down"
+            title="Move down"
             aria-label="Move section down"
             disabled={index === sections.length - 1}
             onclick={() => collections.moveSection(section.id, 1)}
-          >
-            ↓
-          </button>
-          <button
-            type="button"
-            class="cursor-pointer rounded px-1.5 py-1 text-xs text-text-muted hover:text-danger
-                   focus-visible:outline-2 focus-visible:outline-accent"
+          />
+          <IconButton
+            name="close"
+            tone="danger"
             aria-label="Remove section"
             title="Removes the heading; its items move back to the top"
             onclick={() => collections.removeSection(section.id)}
-          >
-            ✕
-          </button>
+          />
         </div>
         {@render itemList(section.id)}
       </section>

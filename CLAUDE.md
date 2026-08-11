@@ -171,6 +171,42 @@ files can be imported and tested. The store tests are integration tests over the
 repository against `fake-indexeddb` — the bugs above live in how the store drives the saver,
 which a unit test of either half cannot see.
 
+### Controls
+
+**Every icon button goes through `ui/IconButton.svelte`, and its `aria-label` is a required
+prop.** A button whose whole label is a glyph announces "button" and nothing else without
+one, and this repo has no linter to catch that — making the prop required means `pnpm check`
+fails at the call site instead. `architecture.test.ts` separately pins that every `<button` in
+`components/` and `routes/` carries a `type`, because the HTML default is `submit`.
+
+**Icons are SVG paths on a fixed 16×16 grid (`ui/icons.ts`), never text glyphs.** The mark-up
+they replaced drew from four Unicode blocks — arrows, a dingbat, a technical symbol, a
+fullwidth plus and an emoji — each with its own ink offset inside its em box, so a row of them
+sat at four different heights and no amount of padding fixed it. Two also fell outside the UI
+font's coverage, so their advance width, and therefore the button's width, changed per
+platform. One `OptionsEditor` button swapped an emoji for a fullwidth plus and changed size
+with its own data.
+
+**28px is the floor for a control, at 4px spacing** (`HIT` in `ui/styles.ts`). The originals
+were as small as 15×16px in rows 2px apart, which fails WCAG 2.2 SC 2.5.8 on both the size
+rule and the spacing exception that would otherwise excuse it.
+
+**Shared class strings live in `ui/styles.ts` as plain exported constants.** Tailwind has to
+see them literally to emit the utilities, so a function that composes class names at runtime is
+how a utility silently stops being generated. Check the built CSS after touching that file.
+
+**`SaveIndicator`'s error sits inside its `role="status"` region.** It used to sit beside it,
+so a screen reader announced "Not saved" and never the reason — in an app with no save button,
+where this is the only report that work reached disk.
+
+**`OutcomePicker` is a combobox and behaves like one.** It closes on focus leaving the
+component, checked one tick later against `document.activeElement` — not on the input's `blur`.
+Opening the picker *replaces* the trigger button with the input, so at the instant `focusout`
+fires the focused element is momentarily `<body>` and `relatedTarget` is null; reading it
+synchronously closes the picker the moment it opens. The old code closed on a 120ms timer,
+which is why its suggestions fired on `onmousedown` to beat it — and a control that only
+answers to a mouse button going down is not reachable by keyboard at all.
+
 ### Markdown and safety
 
 **`src/lib/markdown.ts` sanitises with an allow-list, and that is not optional.** The threat
@@ -403,6 +439,13 @@ repository, vaults and settings, outcomes, items, export/import, rubrics, all ei
 kinds, coverage and validation, Markdown and CSV in the bundle, the PWA, and the `/help`
 guide. See README.md for what that means in user terms, and `git log` for the reasoning
 behind each.
+
+**Stages 13 onwards follow a second plan**, covering what a term of real use surfaced:
+controls and focus (13), a loadable sample course (14), per-criterion rubric points (15),
+shared rubric tails (16), collection-kind capabilities and the task/item split (17), a
+Markdown toolbar (18), cloning a course (19), moving items between collections (20), a write
+funnel (21), the session journal and undo (22), and a command palette (23). **Stage 13 is
+done.** `SCHEMA_VERSION` bumps at 15 and 16 and nowhere else.
 
 Deliberately not built yet:
 

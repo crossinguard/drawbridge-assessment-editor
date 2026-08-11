@@ -4,6 +4,9 @@
   import { items as itemStore } from '$lib/stores/items.svelte';
   import ItemBody from './ItemBody.svelte';
   import PartsEditor from './PartsEditor.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import IconButton from '$lib/components/ui/IconButton.svelte';
+  import { CONTROL, LABEL } from '$lib/components/ui/styles';
 
   interface Props {
     parent: Item;
@@ -42,18 +45,15 @@
     ...(depth < 1 ? (['group'] as const) : [])
   ]);
 
-  const control =
-    'rounded border border-border-subtle bg-surface px-2 py-1 text-xs text-text ' +
-    'focus:border-border-strong focus:outline-2 focus:outline-accent';
 </script>
 
 <div class="flex flex-col gap-2 border-l-2 border-border-subtle pl-3">
   <div class="flex items-baseline justify-between gap-2">
-    <span class="text-xs font-medium tracking-wide text-text-muted uppercase">
+    <span class={LABEL}>
       Parts ({ordered.length})
     </span>
     <!-- Says the rule out loud: a group IS the sum of its parts, unlike a rubric. -->
-    <span class="text-[11px] text-text-muted">
+    <span class="text-2xs text-text-muted">
       worth the sum of its parts — {describePoints(total)}
     </span>
   </div>
@@ -61,12 +61,12 @@
   {#each ordered as part, index (part.id)}
     <div class="rounded-md border border-border-subtle bg-surface-raised">
       <header class="flex flex-wrap items-center gap-2 border-b border-border-subtle px-2 py-1.5">
-        <span class="font-mono text-[11px] text-text-muted">
+        <span class="font-mono text-2xs text-text-muted">
           {String.fromCharCode(97 + index)}.
         </span>
 
         <select
-          class={control}
+          class={CONTROL}
           value={part.kind}
           onchange={(event) => {
             part.kind = event.currentTarget.value as ItemKind;
@@ -79,12 +79,12 @@
           {/each}
         </select>
 
-        <label class="flex items-center gap-1 text-[11px] text-text-muted">
+        <label class="flex items-center gap-1 text-2xs text-text-muted">
           Points
           <input
             type="number"
             step="any"
-            class="{control} w-14"
+            class="{CONTROL} w-16"
             value={part.points ?? ''}
             oninput={(event) => {
               const raw = event.currentTarget.value;
@@ -97,39 +97,38 @@
           />
         </label>
 
-        <span class="text-[11px] text-text-muted">{describePoints(itemPoints(part, scoring))}</span>
+        <span class="text-2xs text-text-muted">{describePoints(itemPoints(part, scoring))}</span>
 
-        <div class="ml-auto flex items-center gap-0.5">
-          <button
-            type="button"
-            class="cursor-pointer rounded px-1.5 py-0.5 text-[11px] text-text-muted
-                   hover:text-text disabled:opacity-30"
+        <div class="ml-auto flex items-center gap-1">
+          <IconButton
+            name="up"
             aria-label="Move part up"
+            title="Move up"
             disabled={index === 0}
-            onclick={() => itemStore.movePart(parent.id, part.id, -1)}>↑</button
-          >
-          <button
-            type="button"
-            class="cursor-pointer rounded px-1.5 py-0.5 text-[11px] text-text-muted
-                   hover:text-text disabled:opacity-30"
+            onclick={() => itemStore.movePart(parent.id, part.id, -1)}
+          />
+          <IconButton
+            name="down"
             aria-label="Move part down"
+            title="Move down"
             disabled={index === ordered.length - 1}
-            onclick={() => itemStore.movePart(parent.id, part.id, 1)}>↓</button
-          >
-          <button
-            type="button"
-            class="cursor-pointer rounded px-1.5 py-0.5 text-[11px] text-text-muted hover:text-text"
+            onclick={() => itemStore.movePart(parent.id, part.id, 1)}
+          />
+          <IconButton
+            name="duplicate"
             aria-label="Duplicate part"
-            onclick={() => itemStore.duplicatePart(parent.id, part.id)}>⧉</button
-          >
-          <button
-            type="button"
-            class="cursor-pointer rounded px-1.5 py-0.5 text-[11px] text-text-muted hover:text-danger"
+            title="Duplicate"
+            onclick={() => itemStore.duplicatePart(parent.id, part.id)}
+          />
+          <IconButton
+            name="close"
+            tone="danger"
             aria-label="Remove part"
+            title="Remove"
             onclick={() => {
               if (confirm('Remove this part?')) itemStore.removePart(parent.id, part.id);
-            }}>✕</button
-          >
+            }}
+          />
         </div>
       </header>
 
@@ -160,15 +159,7 @@
 
   <div class="flex flex-wrap items-center gap-1.5">
     {#each KINDS as kind (kind)}
-      <button
-        type="button"
-        class="cursor-pointer rounded border border-dashed border-border-subtle px-2 py-0.5
-               text-[11px] text-text-muted hover:border-border-strong hover:text-text
-               focus-visible:outline-2 focus-visible:outline-accent"
-        onclick={() => itemStore.addPart(parent.id, kind)}
-      >
-        + {kind}
-      </button>
+      <Button size="sm" onclick={() => itemStore.addPart(parent.id, kind)}>+ {kind}</Button>
     {/each}
   </div>
 </div>

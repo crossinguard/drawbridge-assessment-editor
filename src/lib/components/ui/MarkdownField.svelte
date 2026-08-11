@@ -1,5 +1,6 @@
 <script lang="ts">
   import { renderMarkdown } from '$lib/markdown';
+  import { FOCUS_RING, LABEL } from './styles';
 
   interface Props {
     value: string | undefined;
@@ -20,6 +21,7 @@
   }: Props = $props();
 
   let preview = $state(false);
+  let textarea = $state<HTMLTextAreaElement | null>(null);
   const id = $props.id();
 
   /*
@@ -27,31 +29,40 @@
     already narrow enough on a laptop, and an author writing a stem is reading their
     own Markdown most of the time — the rendered view is for checking a table or a
     list came out right, which is an occasional glance rather than a constant need.
+
+    The toggle is always rendered, including on an empty field. Hiding it until the
+    first character was typed meant somebody who had never filled one in had never seen
+    that a preview existed.
   */
   const rendered = $derived(renderMarkdown(value ?? ''));
-  const hasContent = $derived((value ?? '').trim().length > 0);
+
+  /**
+   * Puts the caret in this field.
+   *
+   * Exported so callers stop reaching into the DOM for it — the collection screen used
+   * to focus a newly added item with `querySelector('textarea')`, which silently picks
+   * the wrong element the moment this component grows a second one.
+   */
+  export function focus(): void {
+    preview = false;
+    textarea?.focus();
+  }
 </script>
 
 <div class="flex flex-col gap-1">
   <div class="flex items-center justify-between gap-2">
-    <label
-      for={id}
-      class={hideLabel ? 'sr-only' : 'text-xs font-medium tracking-wide text-text-muted uppercase'}
-    >
+    <label for={id} class={hideLabel ? 'sr-only' : LABEL}>
       {label}
     </label>
-    {#if hasContent}
-      <button
-        type="button"
-        class="cursor-pointer rounded px-1.5 py-0.5 text-[11px] text-text-muted
-               hover:bg-surface-raised hover:text-text focus-visible:outline-2
-               focus-visible:outline-accent"
-        onclick={() => (preview = !preview)}
-        aria-pressed={preview}
-      >
-        {preview ? 'Edit' : 'Preview'}
-      </button>
-    {/if}
+    <button
+      type="button"
+      class="min-h-7 cursor-pointer rounded-md px-2 py-0.5 text-2xs text-text-muted
+             hover:bg-surface-raised hover:text-text {FOCUS_RING}"
+      onclick={() => (preview = !preview)}
+      aria-pressed={preview}
+    >
+      {preview ? 'Edit' : 'Preview'}
+    </button>
   </div>
 
   {#if preview}
@@ -67,6 +78,7 @@
     </div>
   {:else}
     <textarea
+      bind:this={textarea}
       {id}
       {rows}
       {placeholder}

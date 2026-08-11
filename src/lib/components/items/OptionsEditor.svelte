@@ -2,6 +2,9 @@
   import type { Item, ItemKind } from '$lib/domain/schema';
   import { newId } from '$lib/domain/ids';
   import { expectedKeyCount } from '$lib/domain/items';
+  import Button from '$lib/components/ui/Button.svelte';
+  import IconButton from '$lib/components/ui/IconButton.svelte';
+  import { LABEL } from '$lib/components/ui/styles';
 
   interface Props {
     item: Item;
@@ -57,10 +60,10 @@
 
 <div class="flex flex-col gap-1.5">
   <div class="flex items-baseline justify-between gap-2">
-    <span class="text-xs font-medium tracking-wide text-text-muted uppercase">Options</span>
+    <span class={LABEL}>Options</span>
     {#if rule}
       <span
-        class="text-[11px] {correctCount < rule.min || (rule.max !== null && correctCount > rule.max)
+        class="text-2xs {correctCount < rule.min || (rule.max !== null && correctCount > rule.max)
           ? 'text-warning'
           : 'text-text-muted'}"
       >
@@ -94,55 +97,43 @@
             aria-label="Option {index + 1} text"
             readonly={item.kind === 'trueFalse'}
           />
+          <!--
+            Revealed on hover or keyboard focus. `focus-within` is what keeps these
+            reachable by tab — they are inside the group, so focusing any of them keeps
+            the whole cluster visible.
+          -->
           <div
-            class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity
+            class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity
                    group-hover/opt:opacity-100 group-focus-within/opt:opacity-100"
           >
-            <button
-              type="button"
-              class="cursor-pointer rounded px-1 py-0.5 text-[11px] text-text-muted hover:text-text
-                     focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent"
+            <IconButton
+              name={option.feedback ? 'comment' : 'plus'}
               title="Per-option feedback"
               aria-label="Feedback for option {index + 1}"
               onclick={() => (showFeedbackFor = showFeedbackFor === option.id ? null : option.id)}
-            >
-              {option.feedback ? '💬' : '＋'}
-            </button>
+            />
             {#if item.kind !== 'trueFalse'}
-              <button
-                type="button"
-                class="cursor-pointer rounded px-1 py-0.5 text-[11px] text-text-muted
-                       hover:text-text disabled:opacity-30 focus-visible:outline-2
-                       focus-visible:outline-accent"
+              <IconButton
+                name="up"
                 title="Move up"
                 aria-label="Move option {index + 1} up"
                 disabled={index === 0}
                 onclick={() => move(index, -1)}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                class="cursor-pointer rounded px-1 py-0.5 text-[11px] text-text-muted
-                       hover:text-text disabled:opacity-30 focus-visible:outline-2
-                       focus-visible:outline-accent"
+              />
+              <IconButton
+                name="down"
                 title="Move down"
                 aria-label="Move option {index + 1} down"
                 disabled={index === item.options.length - 1}
                 onclick={() => move(index, 1)}
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                class="cursor-pointer rounded px-1 py-0.5 text-[11px] text-text-muted
-                       hover:text-danger focus-visible:outline-2 focus-visible:outline-accent"
+              />
+              <IconButton
+                name="close"
+                tone="danger"
                 title="Remove option"
                 aria-label="Remove option {index + 1}"
                 onclick={() => removeOption(option.id)}
-              >
-                ✕
-              </button>
+              />
             {/if}
           </div>
         </div>
@@ -163,15 +154,7 @@
 
   {#if item.kind !== 'trueFalse'}
     <div>
-      <button
-        type="button"
-        class="cursor-pointer rounded border border-dashed border-border-subtle px-2 py-0.5
-               text-xs text-text-muted hover:border-border-strong hover:text-text
-               focus-visible:outline-2 focus-visible:outline-accent"
-        onclick={addOption}
-      >
-        + Option
-      </button>
+      <Button size="sm" onclick={addOption}>+ Option</Button>
     </div>
   {/if}
 </div>

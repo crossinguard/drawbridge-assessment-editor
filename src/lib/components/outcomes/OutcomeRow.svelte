@@ -2,6 +2,8 @@
   import type { Issue } from '$lib/domain/validate';
   import type { Outcome } from '$lib/domain/schema';
   import { outcomes } from '$lib/stores/outcomes.svelte';
+  import IconButton from '$lib/components/ui/IconButton.svelte';
+  import type { IconName } from '$lib/components/ui/icons';
 
   interface Props {
     outcome: Outcome;
@@ -100,7 +102,7 @@
   style="padding-left: {depth * 1.25}rem"
 >
   <span
-    class="mt-1.5 w-24 shrink-0 truncate text-[10px] tracking-wide text-text-muted uppercase"
+    class="mt-1.5 w-24 shrink-0 truncate text-3xs tracking-wide text-text-muted uppercase"
     title={tier ?? `Depth ${depth + 1}`}
   >
     {tier ?? `Depth ${depth + 1}`}
@@ -154,31 +156,39 @@
     {/if}
   </div>
 
+  <!--
+    Seven controls in one row, which is why they were the worst case for mismatched
+    glyph baselines — four Unicode blocks, four different ink offsets. They are all on
+    the same 16×16 grid now.
+  -->
   <div
-    class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity
+    class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity
            group-hover:opacity-100 group-focus-within:opacity-100"
   >
-    {#snippet action(label: string, glyph: string, enabled: boolean, run: () => void)}
-      <button
-        type="button"
-        class="cursor-pointer rounded px-1.5 py-1 text-xs text-text-muted hover:bg-surface
-               hover:text-text focus-visible:opacity-100 focus-visible:outline-2
-               focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-30"
+    {#snippet action(label: string, name: IconName, enabled: boolean, run: () => void)}
+      <IconButton
+        {name}
         title={label}
         aria-label={label}
         disabled={!enabled}
         onclick={run}
-      >
-        {glyph}
-      </button>
+        class="focus-visible:opacity-100"
+      />
     {/snippet}
 
-    {@render action('Move up (Alt+↑)', '↑', canMoveUp, () => void outcomes.move(outcome.id, -1))}
-    {@render action('Move down (Alt+↓)', '↓', canMoveDown, () => void outcomes.move(outcome.id, 1))}
-    {@render action('Outdent (Alt+←)', '←', canOutdent, () => void outcomes.outdent(outcome.id))}
-    {@render action('Indent (Alt+→)', '→', canIndent, () => void outcomes.indent(outcome.id))}
-    {@render action('Add child', '+', true, () => onAddChild(outcome.id))}
-    {@render action(showNotes ? 'Hide notes' : 'Notes', '≡', true, () => (showNotes = !showNotes))}
-    {@render action('Delete', '✕', true, () => onRemove(outcome))}
+    {@render action('Move up (Alt+↑)', 'up', canMoveUp, () => void outcomes.move(outcome.id, -1))}
+    {@render action('Move down (Alt+↓)', 'down', canMoveDown, () => void outcomes.move(outcome.id, 1))}
+    {@render action('Outdent (Alt+←)', 'left', canOutdent, () => void outcomes.outdent(outcome.id))}
+    {@render action('Indent (Alt+→)', 'right', canIndent, () => void outcomes.indent(outcome.id))}
+    {@render action('Add child', 'plus', true, () => onAddChild(outcome.id))}
+    {@render action(showNotes ? 'Hide notes' : 'Notes', 'notes', true, () => (showNotes = !showNotes))}
+    <IconButton
+      name="close"
+      tone="danger"
+      title="Delete"
+      aria-label="Delete"
+      onclick={() => onRemove(outcome)}
+      class="focus-visible:opacity-100"
+    />
   </div>
 </div>
