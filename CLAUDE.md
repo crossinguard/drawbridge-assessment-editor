@@ -7,8 +7,16 @@ quizzes, discussion prompts, rubric-assessed tasks. It replaces writing all of t
 administers an assessment to a student and never grades one. It is where assessments are
 written, organised, aligned to outcomes, reviewed and revised.
 
-The full build brief is [drawbridge-redux-plan.md](drawbridge-redux-plan.md). Read it before
-making structural decisions; this file is the running distillation, not a replacement.
+Two plans govern this repo, and **both are in it**:
+
+- [drawbridge-redux-plan.md](drawbridge-redux-plan.md) — the original build brief, stages 0–12.
+  Read it before making structural decisions.
+- [drawbridge-stages-13-23.md](drawbridge-stages-13-23.md) — everything after, stage by stage,
+  with the reasoning and the traps. **Read the stage you are about to build before building
+  it.** Stage 15 was built from the one-line summary below instead, because this file did not
+  exist yet; it came out right, but only because the summary happened to be complete enough.
+
+This file is the running distillation of both, not a replacement for either.
 
 ## Commands
 
@@ -446,8 +454,10 @@ distractors would be unforgivable; validation reports them as unused instead.
 
 ## How to work on this
 
-The build follows the staged order in the brief (§7). Each stage ends with `pnpm check` and
-`pnpm test` clean, a browser check, and one commit whose message explains *why*.
+The build follows the staged order in whichever plan covers the stage — the brief's §7 for
+stages 0–12, [drawbridge-stages-13-23.md](drawbridge-stages-13-23.md) after that. **Read the
+stage before building it.** Each stage ends with `pnpm check` and `pnpm test` clean, a browser
+check, and one commit whose message explains *why*.
 
 **Verify in a real browser, and do not trust the UI's own report.** This is the practice that
 found every serious bug in this codebase, and none of them would have been caught any other
@@ -459,9 +469,22 @@ screen said one thing and storage held another:
 - The outcomes store dropped every edit after the first. The save indicator said "Saved".
 - Reverting an edit wrote the value you had undone, because the superseded value was still
   queued.
+- `remap.ts` remapped a criterion's descriptor keys and not its `levelPoints`, two lines below
+  a comment warning about that exact hazard. Import silently reverted every points override.
+  It was caught by opening the imported sample and reading 12 pt off a rubric worth 16.
 
-Both were silent, both destroyed typed text, and both were invisible to `pnpm test`. A
-`fake-indexeddb` integration test now pins each one, but the browser found them first.
+All three were silent, all three were invisible to `pnpm test`, and the first two destroyed
+typed text. Tests now pin each one — but the browser found them first, every time.
+
+**Unregister the service worker before you verify.** A worker from the previous build serves
+the previous bundle, and working code looks broken — a whole debugging hour went to that in
+stage 13, chasing a component that was already correct. In the console:
+`navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister()))`, clear
+`caches`, then hard-reload.
+
+**Load the sample course as the fixture.** That is what it is for — one click instead of
+twenty minutes of typing, and it exercises every item kind, a group, a stimulus, a shared
+rubric and a collection-level rubric.
 
 Also worth doing every time:
 
@@ -486,13 +509,14 @@ kinds, coverage and validation, Markdown and CSV in the bundle, the PWA, and the
 guide. See README.md for what that means in user terms, and `git log` for the reasoning
 behind each.
 
-**Stages 13 onwards follow a second plan**, covering what a term of real use surfaced:
-controls and focus (13), a loadable sample course (14), per-criterion rubric points (15),
-shared rubric tails (16), collection-kind capabilities and the task/item split (17), a
-Markdown toolbar (18), cloning a course (19), moving items between collections (20), a write
-funnel (21), the session journal and undo (22), and a command palette (23). **Stages 13, 14
-and 15 are done**, taking `SCHEMA_VERSION` to 2. It bumps once more, at 16, and nowhere
-else.
+**Stages 13 onwards follow [drawbridge-stages-13-23.md](drawbridge-stages-13-23.md)**, covering
+what a term of real use surfaced: controls and focus (13), a loadable sample course (14),
+per-criterion rubric points (15), shared rubric tails (16), collection-kind capabilities and
+the task/item split (17), a Markdown toolbar (18), cloning a course (19), moving items between
+collections (20), a write funnel (21), the session journal and undo (22), and a command
+palette (23). **Stages 13, 14 and 15 are done**, taking `SCHEMA_VERSION` to 2. It bumps once
+more, at 16, and nowhere else. That file carries the per-stage detail — schema shapes, the
+decisions already made, and what each stage is most likely to get wrong.
 
 Deliberately not built yet:
 
