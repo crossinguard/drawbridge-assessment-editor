@@ -228,7 +228,9 @@ fullwidth plus and an emoji — each with its own ink offset inside its em box, 
 sat at four different heights and no amount of padding fixed it. Two also fell outside the UI
 font's coverage, so their advance width, and therefore the button's width, changed per
 platform. One `OptionsEditor` button swapped an emoji for a fullwidth plus and changed size
-with its own data.
+with its own data. This is why the formatting toolbar's `bold` and `italic` are letterforms
+drawn as strokes rather than the characters B and I — the rule does not have an exception for
+glyphs that happen to be ASCII.
 
 **28px is the floor for a control, at 4px spacing** (`HIT` in `ui/styles.ts`). The originals
 were as small as 15×16px in rows 2px apart, which fails WCAG 2.2 SC 2.5.8 on both the size
@@ -262,6 +264,29 @@ was opened.
 
 It lives outside `domain/` because DOMPurify needs a DOM and domain has to stay headless.
 `markdown.test.ts` is the one file in the suite that runs under jsdom.
+
+**There are now three Markdown modules and they do different things.** `markdown.ts` renders
+and sanitises for display; `export/markdown.ts` writes the bundle's documents; and
+`markdown-edit.ts` is the toolbar's string arithmetic — pure, DOM-free, and testable without
+a renderer. Nothing in the third one knows what a textarea is.
+
+**A programmatic edit does NOT fire `input`.** `MarkdownField`'s `oninput` prop is the
+textarea's own handler, so `setRangeText` — or assigning `textarea.value` — changes the text
+on screen and queues no save at all. The toolbar therefore writes through the bound `value`
+and calls `oninput?.()` BY HAND. This is the same family of silent loss as the two autosave
+bugs above, and it would look identical: the words are there, the indicator says nothing, and
+the work is gone on reload.
+
+**The toolbar's offsets are the part that breaks, so they are what the tests assert.**
+Characters are the easy half and a glance at the screen catches them; a caret two characters
+off is only discovered by the next keystroke. Selection is restored after `await tick()`,
+because until the textarea has re-rendered with the new string, `setSelectionRange` is
+measuring against the old one.
+
+**The toolbar buttons `preventDefault` on mousedown and act on click.** The first keeps focus
+in the textarea so the selection survives being clicked away from; the second is what keeps
+them reachable by keyboard. Acting on mousedown instead would make them mouse-only — the
+mistake `OutcomePicker` shipped with once.
 
 **Clearing a number field means "not stated", which is not zero.** `points.ts` reports the
 two differently (`undeclared` vs `explicit`) and a collection total depends on it, so the
@@ -584,7 +609,7 @@ what a term of real use surfaced: controls and focus (13), a loadable sample cou
 per-criterion rubric points (15), shared rubric tails (16), collection-kind capabilities and
 the task/item split (17), a Markdown toolbar (18), cloning a course (19), moving items between
 collections (20), a write funnel (21), the session journal and undo (22), and a command
-palette (23). **Stages 13 to 17 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
+palette (23). **Stages 13 to 18 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
 not bump again — stage 17 added fields an older reader ignores to show a busier editor, which
 is exactly the case that is NOT a bump. That file carries the per-stage detail — schema shapes, the decisions already made,
 and what each stage is most likely to get wrong.

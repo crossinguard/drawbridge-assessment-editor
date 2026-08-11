@@ -339,6 +339,20 @@
           points field and outcome alignment. Every text field takes Markdown — tables, lists,
           code — and has a Preview toggle.
         </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">The buttons beside that toggle write the
+          syntax for you.</strong> Bold, italic, code, a bulleted list, a quote, a link and a
+          table. Bold, italic and code wrap whatever is selected and unwrap it if you press
+          again; list and quote apply to every line the selection touches, and come off again
+          when all of them have it. Link keeps your selection as the words and drops the
+          caret on the address. Table drops in a two-column skeleton, on lines of its own,
+          with the first heading selected.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          Nothing is hidden behind them: they type the same characters you would, into the
+          same box, and there is no third mode to be in. You can ignore the row entirely and
+          write the Markdown by hand.
+        </p>
       </section>
 
       <!-- ------------------------------------------------------------------ -->

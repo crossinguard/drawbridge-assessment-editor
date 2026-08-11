@@ -59,6 +59,7 @@ That is the staged build finished. Work continues past it, against a plan of its
 - [x] Stage 15 — per-criterion rubric points, so one criterion can outweigh another
 - [x] Stage 16 — shared rubric tails: boilerplate criteria written once, composed live
 - [x] Stage 17 — collection kinds decide what their editor offers, from settings
+- [x] Stage 18 — a formatting toolbar on every Markdown field
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
@@ -71,6 +72,11 @@ cell can set its own, so Thesis runs 10 / 7 / 4 / 0 on the same grid where Mecha
 boilerplate once and every rubric using it updates when you edit it, on its own scale. The
 dashboard summarises coverage, recent work and open problems; the coverage matrix shows
 outcome × collection with the gaps called out.
+
+Every text field takes Markdown, has a Preview toggle, and carries a small row of formatting
+buttons — bold, italic, code, list, quote, link, table — for the syntax nobody remembers.
+They type the same characters you would, into the same box; ignore them and write it by hand
+if you prefer.
 
 Each **collection kind** decides what its own editor offers — which item kinds appear on the
 add row, whether items are scored one by one, whether there are sections, whether it leads

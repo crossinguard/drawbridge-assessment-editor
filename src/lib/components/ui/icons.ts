@@ -32,7 +32,14 @@ export type IconName =
   | 'notes'
   | 'comment'
   | 'sun'
-  | 'moon';
+  | 'moon'
+  | 'bold'
+  | 'italic'
+  | 'code'
+  | 'list'
+  | 'quote'
+  | 'link'
+  | 'table';
 
 /** One or more `d` attributes per icon, stroked — never filled. */
 export const ICONS: Record<IconName, readonly string[]> = {
@@ -63,5 +70,23 @@ export const ICONS: Record<IconName, readonly string[]> = {
     'M12.6 12.6l-1-1',
     'M4.4 4.4l-1-1'
   ],
-  moon: ['M13 10.3A5.5 5.5 0 0 1 5.7 3 5.5 5.5 0 1 0 13 10.3z']
+  moon: ['M13 10.3A5.5 5.5 0 0 1 5.7 3 5.5 5.5 0 1 0 13 10.3z'],
+
+  /*
+    The formatting toolbar. `bold` and `italic` are letterforms drawn as strokes rather
+    than the characters B and I, for the same reason as everything above: a glyph brings
+    its own ink offset inside its em box, so it would sit at a different height from the
+    six icons beside it.
+  */
+  bold: ['M5 3h3.75a2.5 2.5 0 0 1 0 5H5z', 'M5 8h4.25a2.5 2.5 0 0 1 0 5H5z'],
+  italic: ['M6.5 3h4', 'M5.5 13h4', 'M9.5 3 6.5 13'],
+  code: ['M5.5 5 2.5 8l3 3', 'M10.5 5l3 3-3 3', 'M9.5 3.5 6.5 12.5'],
+  // A zero-length segment with a round cap renders as a dot; see Icon.svelte.
+  list: ['M3 4.5h.01', 'M3 8h.01', 'M3 11.5h.01', 'M6 4.5h7', 'M6 8h7', 'M6 11.5h7'],
+  quote: ['M3 4v8', 'M6.5 5.5h6.5', 'M6.5 8h6.5', 'M6.5 10.5h4'],
+  link: [
+    'M6.75 9.25a2.5 2.5 0 0 0 3.54 0l2-2a2.5 2.5 0 0 0-3.54-3.54l-.6.6',
+    'M9.25 6.75a2.5 2.5 0 0 0-3.54 0l-2 2a2.5 2.5 0 0 0 3.54 3.54l.6-.6'
+  ],
+  table: ['M2.5 3.5h11v9h-11z', 'M2.5 7h11', 'M6.5 3.5v9']
 };

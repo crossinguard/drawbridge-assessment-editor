@@ -18,7 +18,7 @@ but only because the one-line summary happened to be right.
 | ✅ | 15 | Per-criterion points (`Criterion.levelPoints`) | **1 → 2** |
 | ✅ | 16 | Shared rubric tails — boilerplate criteria, composed live | **2 → 3** |
 | ✅ | 17 | Collection-kind capabilities — the task/item builder split | — |
-| | 18 | Markdown toolbar | — |
+| ✅ | 18 | Markdown toolbar | — |
 | | 19 | Clone a course, and delete from the home list | — |
 | | 20 | Move items between collections | — |
 | | 21 | The write funnel — pure refactor, no new UI | — |
@@ -132,32 +132,28 @@ and an `ItemKind`.
 when that rule applies: tails changed arithmetic an older reader would get wrong, capabilities
 only change which controls a newer reader draws.
 
----
+### Stage 18 — Markdown toolbar
 
-## Stage 18 — Markdown toolbar
+`src/lib/markdown-edit.ts` — `toggleWrap`, `toggleLinePrefix`, `insertLink`, `insertTable` —
+wired into `MarkdownField` only, as the scope guard said. Shipped as planned, including the
+`oninput` call by hand; verified in the browser by reading the stem back out of IndexedDB
+rather than trusting the save indicator.
 
-**Delivers** formatting buttons that insert Markdown into the existing textarea. **Not a third
-mode** — `MarkdownField` already has edit/preview and a third makes the button ambiguous. What
-this solves is not having to remember the syntax.
+**The toolbar shares the label row** rather than adding one of its own. An item card stacks
+up to six of these fields and six new rows of chrome would push the writing off screen. Seven
+28px buttons fit beside a label and the Preview toggle down to about 340px of field width,
+which is what the two-column rationale/feedback grid gives at an 800px viewport; below that
+the row wraps rather than overflowing.
 
-New `src/lib/markdown-edit.ts` — pure string manipulation, no DOM, beside the existing
-`text.ts`: `toggleWrap`, `toggleLinePrefix`, `insertLink`, `insertTable`, each returning
-`{ text, selectionStart, selectionEnd }`.
+Two decisions the plan did not spell out, both settled by tests rather than taste:
+`toggleWrap` unwraps markers whether they sit inside OR outside the selection, because both
+states arise naturally and a toggle that only handled one would refuse to undo itself half
+the time; and `toggleLinePrefix` keeps a selection that began at a line start exactly there,
+so selecting a paragraph whole and pressing the list button does not leave the first bullet
+outside the selection.
 
-**`setRangeText` does not fire `input`.** `MarkdownField`'s `oninput` prop is the textarea's
-native handler, so a programmatic edit would change the text and never queue a save — silent
-data loss of exactly the family CLAUDE.md catalogues. Compute the new string in JS, assign to
-the `$bindable` value, call `oninput?.()` explicitly, and restore selection after
-`await tick()`. Reuse the `focus()` method `MarkdownField` gained in stage 13.
-
-**Scope guard:** the toolbar goes in `MarkdownField` only. The rubric grid's descriptor cells
-and the rubric description are raw textareas; a toolbar per cell in a dense grid would be
-absurd.
-
-**Tests** in `markdown-edit.test.ts`, pure and node-environment: wrap/unwrap, empty selection
-places the caret between markers, line prefix applies to every line of a multi-line selection
-and toggles off when all lines have it, link puts the caret in the URL slot. Selection offsets
-in every case — that is the half that breaks and the half a browser test would not pin.
+Seven icons joined `ui/icons.ts`. `bold` and `italic` are letterforms drawn as strokes — the
+never-text-glyphs rule has no exception for glyphs that happen to be ASCII.
 
 ---
 
