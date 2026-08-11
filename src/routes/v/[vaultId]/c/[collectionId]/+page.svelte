@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { collectionPoints, describePoints, type ScoringContext } from '$lib/domain/points';
   import { validateVault, type Issue } from '$lib/domain/validate';
+  import { ALL_CAPABILITIES, capabilitiesOf } from '$lib/domain/collections';
   import type { ItemKind } from '$lib/domain/schema';
   import { activeVault } from '$lib/stores/vault.svelte';
   import { collections } from '$lib/stores/collections.svelte';
@@ -54,6 +55,15 @@
       flush();
     };
   });
+
+  /*
+    What this kind of collection can do, resolved once and passed down as an object.
+    Nothing below — here or in any component — asks which kind it is; that is the whole
+    point, and the reason a course can invent a kind without a code change.
+  */
+  const capabilities = $derived(
+    vault && collection ? capabilitiesOf(vault.config, collection.kind) : ALL_CAPABILITIES
+  );
 
   const sections = $derived([...(collection?.sections ?? [])].sort((a, b) => a.order - b.order));
 
@@ -126,16 +136,6 @@
     await goto(`/v/${vaultId}/collections`);
   }
 
-  const KINDS: readonly ItemKind[] = [
-    'choice',
-    'multi',
-    'trueFalse',
-    'shortAnswer',
-    'essay',
-    'discussion',
-    'group',
-    'stimulus'
-  ];
 </script>
 
 <svelte:head><title>{collection?.title ?? 'Collection'} — Drawbridge</title></svelte:head>
@@ -187,16 +187,53 @@
             aria-label="Declared points"
           />
         </label>
-        <span>·</span>
         <!--
           A rubric on the COLLECTION scores the whole thing at once — a task or a
           discussion marked as one piece. Its items then become structure rather than
           score, which is why the total above switches to the rubric's.
+
+          Where that is the normal way to work, the kind says `rubricFirst` and the
+          control moves out of this row into a block of its own below. Buried in a row
+          of small print it reads as a footnote, which is the wrong weight for the
+          thing that decides what the assessment is worth.
         -->
-        <label class="flex items-center gap-1">
-          Scored by
+        {#if !capabilities.rubricFirst}
+          <span>·</span>
+          <label class="flex items-center gap-1">
+            Scored by
+            <select
+              class="rounded border border-border-subtle bg-surface px-1.5 py-0.5
+                     focus:border-border-strong focus:outline-2 focus:outline-accent"
+              value={collection.rubricId ?? ''}
+              onchange={(event) => {
+                const next = event.currentTarget.value;
+                if (next) collection.rubricId = next;
+                else delete collection.rubricId;
+                collections.queueSave();
+              }}
+              aria-label="Collection rubric"
+            >
+              <option value="">its items</option>
+              {#each rubrics.items as rubric (rubric.id)}
+                <option value={rubric.id}>{rubric.title || 'Untitled rubric'}</option>
+              {/each}
+            </select>
+          </label>
+        {/if}
+      </div>
+    </header>
+
+    {#if capabilities.rubricFirst}
+      {@const scoringRubric = collection.rubricId
+        ? rubrics.items.find((entry) => entry.id === collection.rubricId)
+        : undefined}
+      <section
+        class="flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-raised p-4"
+      >
+        <label class="flex flex-wrap items-center gap-2">
+          <span class="text-sm font-medium">Scored by</span>
           <select
-            class="rounded border border-border-subtle bg-surface px-1.5 py-0.5
+            class="rounded-md border border-border-subtle bg-surface px-2.5 py-1.5 text-sm
                    focus:border-border-strong focus:outline-2 focus:outline-accent"
             value={collection.rubricId ?? ''}
             onchange={(event) => {
@@ -207,14 +244,31 @@
             }}
             aria-label="Collection rubric"
           >
-            <option value="">its items</option>
+            <option value="">its items, one by one</option>
             {#each rubrics.items as rubric (rubric.id)}
               <option value={rubric.id}>{rubric.title || 'Untitled rubric'}</option>
             {/each}
           </select>
+          {#if scoringRubric}
+            <a
+              href="/v/{vaultId}/rubrics/{scoringRubric.id}"
+              class="text-xs underline underline-offset-2 hover:text-accent"
+            >
+              Edit the rubric →
+            </a>
+          {/if}
         </label>
-      </div>
-    </header>
+        <p class="max-w-prose text-xs text-text-muted">
+          {#if scoringRubric}
+            One rubric scores the whole thing, so what is below is the prompt and its
+            materials rather than a list of separately marked questions.
+          {:else}
+            Nothing scores this yet. Attach a rubric and it is marked as one piece; leave
+            it and the items below are added up instead.
+          {/if}
+        </p>
+      </section>
+    {/if}
 
     <div class="grid gap-3 sm:grid-cols-2">
       <MarkdownField
@@ -250,21 +304,40 @@
             rubrics={rubrics.items}
             {stimuli}
             {scoring}
+            {capabilities}
             {focusId}
             onFocused={() => (focusId = null)}
           />
         {/each}
 
-        <div class="flex flex-wrap items-center gap-1.5">
-          {#each KINDS as kind (kind)}
-            <Button size="sm" onclick={() => addItem(kind, sectionId)}>+ {kind}</Button>
-          {/each}
-        </div>
+        <!--
+          The palette is whatever this kind offers. An empty list is a real answer —
+          a task scored wholly by one rubric adds nothing — so say so rather than
+          leaving a bare gap that reads as a rendering failure.
+        -->
+        {#if capabilities.itemKinds.length > 0}
+          <div class="flex flex-wrap items-center gap-1.5">
+            {#each capabilities.itemKinds as kind (kind)}
+              <Button size="sm" onclick={() => addItem(kind, sectionId)}>+ {kind}</Button>
+            {/each}
+          </div>
+        {:else if list.length === 0}
+          <p class="text-xs text-text-muted">
+            This kind of collection holds no items of its own — it is scored as one piece.
+            Settings can widen what it offers.
+          </p>
+        {/if}
       </div>
     {/snippet}
 
     {@render itemList(undefined)}
 
+    <!--
+      Sections that already exist are always rendered, even where the kind no longer
+      offers them: hiding a section would hide the items inside it, which is data loss
+      as far as anyone looking at the screen can tell. Only the "+ Section" control is
+      withheld.
+    -->
     {#each sections as section, index (section.id)}
       <section class="flex flex-col gap-2">
         <div class="flex items-center gap-2 border-t border-border-subtle pt-4">
@@ -303,22 +376,24 @@
     {/each}
 
     <div class="flex flex-wrap items-center gap-3 border-t border-border-subtle pt-4">
-      {#if addingSection}
-        <form class="flex items-center gap-2" onsubmit={addSection}>
-          <input
-            class="rounded border border-border-subtle bg-surface px-2 py-1 text-sm
-                   focus:border-border-strong focus:outline-2 focus:outline-accent"
-            bind:value={newSectionTitle}
-            placeholder="Part I — Descriptive statistics"
-            aria-label="New section title"
-          />
-          <Button size="sm" type="submit" variant="primary">Add</Button>
-          <Button size="sm" type="button" variant="ghost" onclick={() => (addingSection = false)}>
-            Cancel
-          </Button>
-        </form>
-      {:else}
-        <Button size="sm" onclick={() => (addingSection = true)}>+ Section</Button>
+      {#if capabilities.sections}
+        {#if addingSection}
+          <form class="flex items-center gap-2" onsubmit={addSection}>
+            <input
+              class="rounded border border-border-subtle bg-surface px-2 py-1 text-sm
+                     focus:border-border-strong focus:outline-2 focus:outline-accent"
+              bind:value={newSectionTitle}
+              placeholder="Part I — Descriptive statistics"
+              aria-label="New section title"
+            />
+            <Button size="sm" type="submit" variant="primary">Add</Button>
+            <Button size="sm" type="button" variant="ghost" onclick={() => (addingSection = false)}>
+              Cancel
+            </Button>
+          </form>
+        {:else}
+          <Button size="sm" onclick={() => (addingSection = true)}>+ Section</Button>
+        {/if}
       {/if}
       <Button
         size="sm"

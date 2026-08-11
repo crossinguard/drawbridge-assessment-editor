@@ -272,6 +272,25 @@
           your own.
         </p>
         <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">A kind decides what its editor offers.</strong>
+          In Settings, each kind says which item kinds it puts on the add row, whether it
+          scores its items one by one, whether it can be split into sections, and whether it
+          is normally marked as a whole by one rubric. A <em>Quiz</em> offers the four
+          auto-markable kinds; a <em>Task</em> offers an essay and a stimulus, hides per-item
+          points, and puts <strong class="font-medium text-text">Scored by</strong> at the top
+          of the screen instead of in the header line. None of that is wired to the words
+          “quiz” or “task” — invent <em>Lab practical</em> and tick the same boxes and it
+          behaves the same way.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          Nothing here is a restriction on what already exists. Sections you have already made
+          still show even if the kind stops offering new ones, an item keeps its own kind in
+          its dropdown even where the collection would no longer offer it, and a points value
+          on an item whose kind hides the field still counts — the notes panel says so, so the
+          number is never invisible. A collection whose kind was renamed or came from another
+          course gets the full editor rather than a reduced one.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
           <strong class="font-medium text-text">An item belongs to exactly one collection.</strong>
           There is no shared pool, and there is no way to move an item to another collection —
           the <strong class="font-medium text-text">Duplicate</strong> button in an item's
@@ -498,7 +517,12 @@
           <div class="flex flex-col gap-1 bg-surface px-4 py-3 sm:flex-row sm:gap-4">
             <dt class="w-40 shrink-0 text-sm font-medium">Collection kinds</dt>
             <dd class="min-w-0 text-sm text-text-muted">
-              The only thing distinguishing a bank from an exam. Add your own freely.
+              The only thing distinguishing a bank from an exam, and what each one's editor
+              offers: which item kinds appear on the add row, whether items are scored one by
+              one, whether there are sections, and whether it leads with a rubric. Add your own
+              freely. Untick <strong class="font-medium text-text">Offer every kind</strong> to
+              choose from the list; leaving none ticked is a real answer, and right for
+              something scored entirely by one rubric.
             </dd>
           </div>
           <div class="flex flex-col gap-1 bg-surface px-4 py-3 sm:flex-row sm:gap-4">

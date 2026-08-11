@@ -29,13 +29,57 @@ export function defaultVaultConfig(): VaultConfig {
       { key: 'ready', label: 'Ready', colour: '#34d399' },
       { key: 'retired', label: 'Retired', colour: '#cbd5e1' }
     ],
+    /*
+      Starting points, not rules. Every one of these is editable in Settings, and the
+      capabilities are data precisely so that a course inventing "lab practical" can
+      describe it without a code change.
+
+      `itemKinds` absent means every kind — see CollectionKindSchema for why that is not
+      the same as `[]`.
+    */
     collectionKinds: [
-      { key: 'bank', label: 'Item bank' },
-      { key: 'quiz', label: 'Quiz' },
-      { key: 'exam', label: 'Exam' },
-      { key: 'task', label: 'Task' },
-      { key: 'discussion', label: 'Discussion' },
-      { key: 'survey', label: 'Survey' }
+      // A bank holds anything, and holds it to be drawn on later.
+      { key: 'bank', label: 'Item bank', itemScoring: true, sections: true, rubricFirst: false },
+      {
+        key: 'quiz',
+        label: 'Quiz',
+        // Auto-markable kinds only. An essay in a quiz is possible, just not offered
+        // by default — widen it here and the button appears.
+        itemKinds: ['choice', 'multi', 'trueFalse', 'shortAnswer'],
+        itemScoring: true,
+        sections: true,
+        rubricFirst: false
+      },
+      // Deliberately NOT narrowed: an exam mixes a passage, a group, a short answer and
+      // an essay, which is exactly what the sample course's own exam does.
+      { key: 'exam', label: 'Exam', itemScoring: true, sections: true, rubricFirst: false },
+      {
+        key: 'task',
+        label: 'Task',
+        // Scored as one piece by a rubric, so the prompt and its materials are all it
+        // holds, and per-item points would be a number nobody uses.
+        itemKinds: ['essay', 'stimulus'],
+        itemScoring: false,
+        sections: false,
+        rubricFirst: true
+      },
+      {
+        key: 'discussion',
+        label: 'Discussion',
+        itemKinds: ['discussion', 'stimulus'],
+        itemScoring: false,
+        sections: false,
+        rubricFirst: true
+      },
+      {
+        key: 'survey',
+        label: 'Survey',
+        // Answered but not marked, which is what itemScoring off says.
+        itemKinds: ['choice', 'multi', 'shortAnswer'],
+        itemScoring: false,
+        sections: true,
+        rubricFirst: false
+      }
     ],
     levelSets: [
       {

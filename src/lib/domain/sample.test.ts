@@ -4,6 +4,7 @@ import { VaultSnapshotSchema } from './schema';
 import { validateVault } from './validate';
 import { flattenItems, rubricTotal } from './points';
 import { noTails, scoringContext } from './fixtures';
+import { capabilitiesOf } from './collections';
 
 /*
   What makes a hand-written fixture worth shipping is that these hold. The sample is
@@ -157,6 +158,36 @@ describe('the sample course', () => {
     // The composed total is the host's plus the tail's own maximum per criterion.
     const alone = rubricTotal({ ...host!, appends: [] }, context);
     expect(rubricTotal(host!, context)).toBe(alone + tailBest * tail!.criteria.length);
+  });
+
+  it('holds no item its own collection kind would refuse to offer', () => {
+    /*
+      A demo whose exam contains a passage its own settings do not offer looks broken
+      in the one place a first-time reader is most likely to poke: the add row is
+      missing the button for something already sitting above it. This is also the
+      check that decides how narrow the seeded kinds may be — tighten `defaults.ts`
+      past what the sample uses and this fails rather than shipping.
+    */
+    const snapshot = sampleSnapshot();
+    const byId = new Map(snapshot.collections.map((collection) => [collection.id, collection]));
+
+    for (const item of flattenItems(snapshot.items)) {
+      const collection = byId.get(item.collectionId)!;
+      const offered = capabilitiesOf(snapshot.vault.config, collection.kind).itemKinds;
+      expect(offered, `${collection.title} does not offer ${item.kind}`).toContain(item.kind);
+    }
+  });
+
+  it('shows a kind that scores its items and one that does not', () => {
+    // Both halves of stage 17 on screen: a quiz marked question by question, and a
+    // task marked as one piece by a rubric.
+    const config = sampleSnapshot().vault.config;
+
+    expect(capabilitiesOf(config, 'quiz').itemScoring).toBe(true);
+    expect(capabilitiesOf(config, 'task')).toMatchObject({
+      itemScoring: false,
+      rubricFirst: true
+    });
   });
 
   it('shows every item kind the app has', () => {

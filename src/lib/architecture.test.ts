@@ -143,6 +143,55 @@ describe('src/lib dependency direction', () => {
   });
 });
 
+describe('vocabularies stay data', () => {
+  it('never compares a collection kind against a literal', () => {
+    /*
+      `kind === 'quiz'` is the failure this codebase names in its own principles, and
+      stage 17 removed the last reason to write one: what a kind can do is answered by
+      `capabilitiesOf`, and components take the resolved object. The moment a literal
+      comparison appears, a course that invents "lab practical" stops being able to get
+      that behaviour without a code change — which is the entire point of the rule.
+
+      `item.kind` is deliberately NOT covered. `ItemKind` is a closed structural
+      discriminant, the one legitimate thing to branch on, and `ItemBody` does.
+    */
+    const withoutComments = (text: string) =>
+      text
+        .replace(/<!--[\s\S]*?-->/g, (found) => found.replace(/[^\n]/g, ' '))
+        .replace(/\/\*[\s\S]*?\*\//g, (found) => found.replace(/[^\n]/g, ' '))
+        .replace(/\/\/[^\n]*/g, (found) => found.replace(/[^\n]/g, ' '));
+
+    /*
+      Two shapes: naming the property outright, and comparing some other variable
+      against a seeded kind key — `const k = collection.kind` then `k === 'quiz'`.
+
+      `discussion` is left off the second list on purpose. It is a seeded collection
+      kind AND a member of `ItemKind`, so including it flags `item.kind ===
+      'discussion'` in `ItemBody`, which is correct code doing the one kind of
+      branching that is allowed. The first pattern still catches the direct form.
+    */
+    const seeded = ['bank', 'quiz', 'exam', 'task', 'survey'];
+    const patterns = [
+      /\bcollection\.kind\s*[=!]==?/g,
+      new RegExp(String.raw`\bkind\s*[=!]==?\s*['"](?:${seeded.join('|')})['"]`, 'g')
+    ];
+
+    const offenders = sourceFilesUnder(libDir)
+      .concat(sourceFilesUnder(join(libDir, '..', 'routes')))
+      .filter((file) => !file.endsWith('.test.ts'))
+      .flatMap((file) => {
+        const text = withoutComments(readFileSync(file, 'utf8'));
+        return patterns.flatMap((pattern) =>
+          [...text.matchAll(pattern)].map(
+            (match) => `${relative(libDir, file)}:${text.slice(0, match.index).split('\n').length}`
+          )
+        );
+      });
+
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe('control conventions', () => {
   it('gives every button an explicit type', () => {
     /*

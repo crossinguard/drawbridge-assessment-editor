@@ -17,7 +17,7 @@ but only because the one-line summary happened to be right.
 | ✅ | 14 | A sample course, loadable from the home screen | — |
 | ✅ | 15 | Per-criterion points (`Criterion.levelPoints`) | **1 → 2** |
 | ✅ | 16 | Shared rubric tails — boilerplate criteria, composed live | **2 → 3** |
-| | 17 | Collection-kind capabilities — the task/item builder split | — |
+| ✅ | 17 | Collection-kind capabilities — the task/item builder split | — |
 | | 18 | Markdown toolbar | — |
 | | 19 | Clone a course, and delete from the home list | — |
 | | 20 | Move items between collections | — |
@@ -27,7 +27,7 @@ but only because the one-line summary happened to be right.
 
 `SCHEMA_VERSION` reached **3 at stage 16** and does not move again. The contrast between
 stage 16 (arithmetic changes, bump) and stage 17 (chrome changes, no bump) is the clearest
-illustration of that rule in the repo's history and belongs in stage 17's commit message.
+illustration of that rule in the repo's history, and is recorded in both commit messages.
 
 Two orderings are deliberate and worth not undoing:
 
@@ -108,62 +108,29 @@ tail so the array is never empty. Stages 17 and 19 move id-keyed data too.
 **Naming note for later stages:** the composed-criterion type is `EffectiveCriterion
 { criterion, source, inherited }`, and `source` is what everything scores against.
 
----
+### Stage 17 — Collection-kind capabilities
 
-## Stage 17 — Collection-kind capabilities
+`CollectionKindSchema` extends `VocabSchema`; `capabilitiesOf(config, kind)` in the new
+`domain/collections.ts` resolves it. Shipped as planned, with the `.optional()` /
+`.default([])` distinction on `itemKinds` holding up under the bundle round-trip — absent
+comes back absent, which a default would have flattened.
 
-**Delivers** the task/item builder split, driven by data. One screen whose chrome is
-capability-driven: a task shows no answer-key machinery and no kind palette; an exam shows no
-rubric-first block. `collection.kind` is currently never read by the collection editor, so
-this is additive rather than a rewrite.
+**Deviation:** `exam` is NOT narrowed to the selected-response kinds. The sample course's own
+exam mixes a stimulus, a group, a short answer and an essay, so narrowing it would ship a demo
+whose add row lacks buttons for things already sitting above it. A new `sample.test.ts` case
+now fails on exactly that, and is the check that decides how narrow any seeded kind may be.
 
-**Not a `mode` field.** `if (kind.mode === 'task')` is `if (kind === 'quiz')` wearing a hat,
-and fails the vocabularies-are-data rule for the reason that rule exists — a course that
-invents "lab practical" gets two boxes to choose between rather than the behaviour it wants.
+Three additions the plan did not name: `ALL_CAPABILITIES` (exported so no screen invents a
+placeholder while its vault loads — the safe answer is always the full editor), `kindOptions`
+(keeps an item's own kind in its dropdown, so a narrowed palette can never render a `<select>`
+whose value it does not contain), and an `architecture.test.ts` rule failing the build on
+`collection.kind ===` or a comparison against a seeded key. `item.kind` is exempt, and the
+guard has to leave `'discussion'` off its literal list because it is both a collection kind
+and an `ItemKind`.
 
-```ts
-export const CollectionKindSchema = VocabSchema.extend({
-  /** Item kinds offered here. Absent means every kind; empty means none. */
-  itemKinds: z.array(ItemKindSchema).optional(),
-  /** Offer per-item points, answer keys and the item-kind picker. */
-  itemScoring: z.boolean().default(true),
-  sections: z.boolean().default(true),
-  /** Lead the screen with the collection's rubric rather than burying it in the header. */
-  rubricFirst: z.boolean().default(false)
-});
-```
-
-`itemKinds` is **optional**, not defaulted to `[]`. Absent means "not stated" → every kind;
-`[]` means an explicit none, which is right for a task scored wholly by one rubric. Same
-"cleared is not zero" distinction the codebase already draws for `item.points` and for
-`levelPoints`.
-
-A new schema rather than editing `VocabSchema` in place — that schema is shared with
-`statuses`, where collection capabilities are meaningless. `.extend()` keeps it compatible
-with all eight structural readers (`labelOf`, `validate.ts`, `csv.ts`, the collections index).
-
-New `domain/collections.ts` — `capabilitiesOf(config, kind): KindCapabilities`, pure. **An
-unknown kind returns everything enabled**; a bundle from another course must never open
-degraded.
-
-**Components take the resolved capability object, never a kind key.** `ItemBody`'s existing
-branches on `item.kind` stay — those branch on `ItemKind`, the one legitimate closed
-structural discriminant. What changes is collection-level chrome: the hard-coded `KINDS` array
-in the collection route goes; sections gate on `capabilities.sections`; "Scored by" moves into
-a prominent block when `rubricFirst`.
-
-Settings gets a `CollectionKindsEditor.svelte` beside `VocabEditor` rather than a conditional
-inside it. `defaults.ts` seeds `task`/`discussion` with `itemScoring: false, rubricFirst:
-true` and narrows `quiz`/`exam` to the selected-response kinds — starting points only.
-
-**No `SCHEMA_VERSION` bump.** An older reader ignoring `itemScoring` shows a busier editor. No
-number changes, nothing is misread.
-
-**Risk.** Hiding the points field contradicts `ItemBody`'s stated rule that hiding a field the
-schema accepts makes editor and model disagree. The difference is that this is a *user's*
-choice for a *kind*, and `points.ts` still honours a value if present. Add
-`item.points-hidden-by-kind` at info severity so a counted-but-unshown number is never
-invisible.
+**No `SCHEMA_VERSION` bump**, and stage 16 →17 is the clearest illustration in the repo of
+when that rule applies: tails changed arithmetic an older reader would get wrong, capabilities
+only change which controls a newer reader draws.
 
 ---
 

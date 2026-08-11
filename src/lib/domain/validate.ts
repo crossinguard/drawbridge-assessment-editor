@@ -1,4 +1,5 @@
 import { collectionPoints, flattenItems, itemPoints, type ScoringContext } from './points';
+import { capabilitiesOf, type KindCapabilities } from './collections';
 import { computeCoverage } from './coverage';
 import { hasAppendCycle } from './rubrics';
 import { unreachableOutcomes } from './outcomes';
@@ -384,6 +385,8 @@ export function validateVault(input: ValidationInput): Issue[] {
       all.filter((item) => item.kind === 'stimulus').map((item) => item.id)
     );
 
+    const capabilities = capabilitiesOf(vault.config, collection.kind);
+
     for (const item of all) {
       issues.push(
         ...validateItem(item, {
@@ -393,7 +396,8 @@ export function validateVault(input: ValidationInput): Issue[] {
           rubricsById,
           statusKeys,
           sectionIds,
-          stimulusIds
+          stimulusIds,
+          capabilities
         })
       );
     }
@@ -430,11 +434,34 @@ interface ItemContext {
   statusKeys: ReadonlySet<string>;
   sectionIds: ReadonlySet<string>;
   stimulusIds: ReadonlySet<string>;
+  capabilities: KindCapabilities;
 }
 
 function validateItem(item: Item, ctx: ItemContext): Issue[] {
   const issues: Issue[] = [];
   const correct = item.options.filter((option) => option.correct);
+
+  /*
+    A points value on an item whose collection kind does not show the points field.
+
+    `ItemBody` states the rule this bends: hiding a field the schema accepts makes the
+    editor and the model disagree. The difference here is that this is the USER's
+    choice for their own kind, and `points.ts` still honours the number — so the risk
+    is not disagreement in principle but a figure that counts towards a total while
+    being invisible on the screen that would explain it. Saying so is what makes
+    hiding the field safe.
+  */
+  if (!ctx.capabilities.itemScoring && item.points !== undefined) {
+    issues.push(
+      issue(
+        'item.points-hidden-by-kind',
+        'info',
+        'item',
+        item.id,
+        `Worth ${item.points}, but this collection's kind does not show per-item points. The value still counts towards the total.`
+      )
+    );
+  }
 
   /*
     Shape rules, one per kind. These are the only place in the codebase that branches

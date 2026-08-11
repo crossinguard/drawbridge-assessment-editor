@@ -10,7 +10,7 @@ import {
   levels,
   options
 } from './fixtures';
-import type { Collection, Item, Outcome, Rubric } from './schema';
+import { VaultConfigSchema, type Collection, type Item, type Outcome, type Rubric } from './schema';
 
 function check(input: {
   outcomes?: Outcome[];
@@ -303,6 +303,68 @@ describe('rubric rules', () => {
     const issues = check({ rubrics: [aRubric({ levels: fourPoint, criteria: [weighted] })] });
 
     expect(ruleIds(issues)).not.toContain('rubric.orphan-level-points');
+  });
+});
+
+describe('collection-kind capabilities', () => {
+  const vaultWith = (kinds: unknown[]) =>
+    aVault({ config: VaultConfigSchema.parse({ collectionKinds: kinds }) });
+
+  it('says so when a kind hides points the total is still counting', () => {
+    /*
+      The rule that makes hiding the field safe. `ItemBody` states that hiding a field
+      the schema accepts makes the editor and the model disagree; this is the user's
+      own choice for their own kind, and points.ts still honours the number — so the
+      only real risk is a figure that counts while being invisible. Say it, and the
+      risk is gone.
+    */
+    const vault = vaultWith([{ key: 'task', label: 'Task', itemScoring: false }]);
+    const task = aCollection({ id: 'task', kind: 'task' });
+    const issues = check({
+      vault,
+      collections: [task],
+      items: { task: [anItem('essay', { collectionId: 'task', points: 8 })] }
+    });
+
+    const note = issues.find((issue) => issue.ruleId === 'item.points-hidden-by-kind');
+    expect(note?.severity).toBe('info');
+    expect(note?.message).toContain('8');
+  });
+
+  it('says nothing when the kind shows points, or when there are none to hide', () => {
+    const vault = vaultWith([
+      { key: 'quiz', label: 'Quiz' },
+      { key: 'task', label: 'Task', itemScoring: false }
+    ]);
+
+    const scored = check({
+      vault,
+      collections: [aCollection({ id: 'quiz', kind: 'quiz' })],
+      items: { quiz: [anItem('choice', { collectionId: 'quiz', points: 8, options: options(['a', true], ['b', false]) })] }
+    });
+    expect(ruleIds(scored)).not.toContain('item.points-hidden-by-kind');
+
+    const unscored = check({
+      vault,
+      collections: [aCollection({ id: 'task', kind: 'task' })],
+      items: { task: [anItem('essay', { collectionId: 'task' })] }
+    });
+    expect(ruleIds(unscored)).not.toContain('item.points-hidden-by-kind');
+  });
+
+  it('does not fire for a kind the vault has never heard of', () => {
+    // An unknown kind resolves to everything enabled, so its points ARE shown. The
+    // unknown kind is reported separately; this rule staying quiet is the point.
+    const vault = vaultWith([{ key: 'quiz', label: 'Quiz' }]);
+    const odd = aCollection({ id: 'odd', kind: 'lab-practical' });
+    const issues = check({
+      vault,
+      collections: [odd],
+      items: { odd: [anItem('essay', { collectionId: 'odd', points: 8 })] }
+    });
+
+    expect(ruleIds(issues)).not.toContain('item.points-hidden-by-kind');
+    expect(ruleIds(issues)).toContain('collection.unknown-kind');
   });
 });
 

@@ -9,6 +9,7 @@
   import Field from '$lib/components/ui/Field.svelte';
   import SaveIndicator from '$lib/components/SaveIndicator.svelte';
   import VocabEditor from '$lib/components/settings/VocabEditor.svelte';
+  import CollectionKindsEditor from '$lib/components/settings/CollectionKindsEditor.svelte';
   import StringListEditor from '$lib/components/settings/StringListEditor.svelte';
   import LevelSetsEditor from '$lib/components/settings/LevelSetsEditor.svelte';
   import TagDimensionsEditor from '$lib/components/settings/TagDimensionsEditor.svelte';
@@ -128,9 +129,9 @@
 
     <Card
       title="Collection kinds"
-      description="An item bank, a quiz, an exam and a discussion set are all collections; this is the only thing that distinguishes them."
+      description="An item bank, a quiz, an exam and a discussion set are all collections; this is the only thing that distinguishes them, and what it says here is what their editor offers."
     >
-      <VocabEditor bind:items={vault.config.collectionKinds} addLabel="Kind" withColour={false} />
+      <CollectionKindsEditor bind:items={vault.config.collectionKinds} />
     </Card>
 
     <Card

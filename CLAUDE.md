@@ -55,7 +55,9 @@ These are load-bearing. Each has cost someone something.
 **Vocabularies are always data.** Statuses, collection kinds, rubric level sets, outcome tier
 names, tag dimensions — all defined per vault in `VaultConfig` and edited by the user. Never
 special-case a particular status or kind in code. A course that invents a new one must not
-need a code change. Concretely: never write `if (status === 'ready')` or `kind === 'quiz'`.
+need a code change. Concretely: never write `if (status === 'ready')` or `kind === 'quiz'` —
+`architecture.test.ts` now fails the build if you do. Since stage 17, what a collection kind
+*does* is data too: see `domain/collections.ts`.
 
 **Custom fields round-trip untouched.** Any field the app does not recognise is preserved
 exactly through load, edit, export and import. This is *the* extension seam, and it works at
@@ -196,8 +198,16 @@ not a shared demo.
 carrying its own `levelPoints`, and a "Professionalism" rubric appended as a shared tail — a
 grid where every row is worth the same looks like the only kind there is. The tail is on a
 deliberately SHORTER scale than the rubric appending it (2 against 6), because a demo where
-both scales matched would look identical whether or not the code scored it correctly.
-`sample.test.ts` pins all three, the last two by checking the totals actually move.
+both scales matched would look identical whether or not the code scored it correctly. It also
+carries a quiz that scores its items one by one and a task that does not, which is stage 17
+on screen. `sample.test.ts` pins all of it, the arithmetic ones by checking the totals move.
+
+**The sample is what decides how narrow a seeded collection kind may be.** `sample.test.ts`
+fails if any item sits in a collection whose kind would not offer it — a demo whose exam
+holds a passage its own settings do not offer looks broken in the first place anyone pokes.
+That is why `exam` is seeded with `itemKinds` absent rather than narrowed to
+selected-response: the sample's own exam mixes a stimulus, a group, a short answer and an
+essay.
 
 **It contains a deliberately unfinished item and one uncovered outcome.** `sample.test.ts`
 pins both halves: no `error`-severity issue anywhere (a demo that opens red teaches the wrong
@@ -332,6 +342,39 @@ most of a tree as a problem and bury the real ones.
 **A problem you cannot navigate to is only half reported.** `review.linkFor(issue)` resolves
 an issue to the screen that can fix it. Issue ids for nested things are `parentId:childId`,
 so only the first segment is an entity.
+
+### Collection kinds
+
+**What a kind can do is data, resolved by `capabilitiesOf(config, kind)` in
+`domain/collections.ts`.** `CollectionKindSchema` extends `VocabSchema` with `itemKinds`,
+`itemScoring`, `sections` and `rubricFirst`. It is deliberately NOT a `mode` field: `mode ===
+'task'` is `kind === 'quiz'` wearing a hat, and a course that invents "lab practical" would
+get two boxes to choose between instead of the behaviour it wants.
+
+**Components take the resolved `KindCapabilities` object, never a kind key.** A component
+holding the key would have to branch on it, which is the thing this exists to prevent.
+`architecture.test.ts` fails on `collection.kind ===` and on comparisons against the seeded
+keys. `item.kind` is exempt and stays exempt — `ItemKind` is the one legitimate closed
+structural discriminant, and `ItemBody` branches on it.
+
+**An unknown kind gets everything enabled.** A renamed key, or a bundle from a course with
+kinds this vault never defined, must open with the FULL editor: a degraded screen would
+withhold the controls needed to fix the very problem that caused it. `validate.ts` reports
+the unknown kind separately, so it is visible without being disabling.
+
+**`itemKinds` is `.optional()`, not `.default([])`.** Absent means "not stated" and offers
+every kind; `[]` is an explicit none, right for a task scored wholly by one rubric. Same
+distinction as `item.points` and `levelPoints`. A default would have flattened the two on
+the first bundle round-trip, since `undefined` does not survive JSON — the settings editor
+therefore `delete`s the key rather than writing a full list.
+
+**Hiding a field the schema accepts is allowed HERE, and only because it is reported.**
+`ItemBody`'s rule still stands in general. The difference is that this is the user's own
+choice for their own kind and `points.ts` still honours the value, so the only real risk is a
+number that counts towards a total while being invisible — `item.points-hidden-by-kind` at
+info severity is what removes it. Nothing that already exists is hidden: existing sections
+still render when the kind stops offering new ones, and `kindOptions` keeps an item's own
+kind in its dropdown so a `<select>` never shows a value it does not contain.
 
 ### Item kinds
 
@@ -541,8 +584,9 @@ what a term of real use surfaced: controls and focus (13), a loadable sample cou
 per-criterion rubric points (15), shared rubric tails (16), collection-kind capabilities and
 the task/item split (17), a Markdown toolbar (18), cloning a course (19), moving items between
 collections (20), a write funnel (21), the session journal and undo (22), and a command
-palette (23). **Stages 13 to 16 are done**, taking `SCHEMA_VERSION` to 3. It does not bump
-again. That file carries the per-stage detail — schema shapes, the decisions already made,
+palette (23). **Stages 13 to 17 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
+not bump again — stage 17 added fields an older reader ignores to show a busier editor, which
+is exactly the case that is NOT a bump. That file carries the per-stage detail — schema shapes, the decisions already made,
 and what each stage is most likely to get wrong.
 
 Deliberately not built yet:

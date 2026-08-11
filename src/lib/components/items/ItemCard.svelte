@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Issue } from '$lib/domain/validate';
   import type { Item, ItemKind, Outcome, Rubric, Section, Vault } from '$lib/domain/schema';
-  import { ItemKindSchema } from '$lib/domain/schema';
   import { describePoints, itemPoints, type ScoringContext } from '$lib/domain/points';
+  import { kindOptions, type KindCapabilities } from '$lib/domain/collections';
   import { items as itemStore } from '$lib/stores/items.svelte';
   import ItemBody from './ItemBody.svelte';
   import PartsEditor from './PartsEditor.svelte';
@@ -20,6 +20,12 @@
     rubrics: readonly Rubric[];
     stimuli: readonly Item[];
     scoring: ScoringContext;
+    /**
+     * What this collection's kind offers. The resolved object, never a kind key —
+     * a component that took the key would have to branch on it, which is the thing
+     * capabilities exist to prevent.
+     */
+    capabilities: KindCapabilities;
     focusId: string | null;
     onFocused: () => void;
   }
@@ -35,6 +41,7 @@
     rubrics,
     stimuli,
     scoring,
+    capabilities,
     focusId,
     onFocused
   }: Props = $props();
@@ -42,7 +49,9 @@
   let body = $state<ReturnType<typeof ItemBody> | null>(null);
   let expanded = $state(true);
 
-  const allKinds = ItemKindSchema.options as readonly ItemKind[];
+  // Whatever the kind offers, plus this item's own kind if it is not among them, so
+  // the select can never show a value it does not contain. See kindOptions.
+  const offered = $derived(kindOptions(capabilities, item.kind));
 
   const points = $derived(itemPoints(item, scoring));
   const worst = $derived(
@@ -85,37 +94,49 @@
 
     <span class="font-mono text-xs text-text-muted">{position + 1}</span>
 
-    <select
-      class={CONTROL}
-      value={item.kind}
-      onchange={(event) => void itemStore.setKind(item.id, event.currentTarget.value as ItemKind)}
-      aria-label="Item kind"
-    >
-      {#each allKinds as kind (kind)}
-        <option value={kind}>{kind}</option>
-      {/each}
-    </select>
+    <!--
+      The kind picker and the points field are both scoring machinery, and a kind that
+      says it does not score its items individually shows neither. The computed figure
+      stays: it is what the collection total is made of, and hiding it as well would
+      leave a rubric-scored task with no statement of what it is worth anywhere.
+    -->
+    {#if capabilities.itemScoring}
+      <select
+        class={CONTROL}
+        value={item.kind}
+        onchange={(event) => void itemStore.setKind(item.id, event.currentTarget.value as ItemKind)}
+        aria-label="Item kind"
+      >
+        {#each offered as kind (kind)}
+          <option value={kind}>{kind}</option>
+        {/each}
+      </select>
+    {:else}
+      <span class="text-xs text-text-muted">{item.kind}</span>
+    {/if}
 
     {#if item.kind !== 'stimulus'}
-      <label class="flex items-center gap-1 text-xs text-text-muted">
-        Points
-      <input
-        type="number"
-        step="any"
-        class="{CONTROL} w-16"
-        value={item.points ?? ''}
-        oninput={(event) => {
-          const raw = event.currentTarget.value;
-          // Cleared means "not stated", which is different from zero — points.ts
-          // reports the two differently and the collection total depends on it.
-          if (raw === '') delete item.points;
-          else item.points = Number(raw);
-          edited();
-        }}
-          placeholder="—"
-          aria-label="Points"
-        />
-      </label>
+      {#if capabilities.itemScoring}
+        <label class="flex items-center gap-1 text-xs text-text-muted">
+          Points
+          <input
+            type="number"
+            step="any"
+            class="{CONTROL} w-16"
+            value={item.points ?? ''}
+            oninput={(event) => {
+              const raw = event.currentTarget.value;
+              // Cleared means "not stated", which is different from zero — points.ts
+              // reports the two differently and the collection total depends on it.
+              if (raw === '') delete item.points;
+              else item.points = Number(raw);
+              edited();
+            }}
+            placeholder="—"
+            aria-label="Points"
+          />
+        </label>
+      {/if}
 
       <span class="text-xs text-text-muted" title="Computed from this item">
         {describePoints(points)}

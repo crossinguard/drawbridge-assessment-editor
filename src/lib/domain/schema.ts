@@ -47,6 +47,32 @@ const entity = {
   fields
 };
 
+/*
+  ItemKind is the one closed vocabulary in the model, and it is closed on purpose.
+
+  Unlike a status or a collection kind, each of these implies a different *shape* —
+  `choice` needs options, `group` needs parts, `stimulus` carries no points — so code
+  must branch on it and adding a member is a code change by definition. The predecessor
+  derived answer kind from content because Markdown had nowhere to declare it;
+  structured data does, so it is declared.
+
+  `matching` and `ordering` are plausible later additions. Nothing here forecloses them.
+
+  Declared up here, above the config rather than beside the other entity shapes,
+  because a collection kind states which of these it offers and `CollectionKindSchema`
+  therefore needs it.
+*/
+export const ItemKindSchema = z.enum([
+  'choice', // options, exactly one correct
+  'multi', // options, two or more correct
+  'trueFalse', // two fixed options
+  'shortAnswer', // expected + accepted[], numeric or text
+  'essay', // expected as a model answer, optional rubric
+  'discussion', // stem as prompt + discussion spec + usually a rubric
+  'group', // container; worth the SUM of its parts
+  'stimulus' // shared passage/table/figure; carries no points
+]);
+
 // ---------------------------------------------------------------------------
 // Vault configuration — the flexibility seam
 // ---------------------------------------------------------------------------
@@ -55,6 +81,37 @@ export const VocabSchema = z.looseObject({
   key: z.string().min(1),
   label: z.string(),
   colour: z.string().optional()
+});
+
+/**
+ * A collection kind, and what a collection of that kind can do.
+ *
+ * The capabilities are per-kind DATA, not a `mode` field with two settings. `mode:
+ * 'task'` would be `kind === 'quiz'` wearing a hat, and it fails the
+ * vocabularies-are-data rule for exactly the reason that rule exists: a course that
+ * invents "lab practical" would get two boxes to pick between instead of the behaviour
+ * it actually wants.
+ *
+ * Its own schema rather than fields added to `VocabSchema`, because that shape is
+ * shared with `statuses` and tag values, where "does this offer answer keys" is
+ * meaningless. `.extend()` keeps every reader that treats a kind as a plain vocab entry
+ * — `labelOf`, the collections index, `csv.ts`, `validate.ts` — working untouched.
+ */
+export const CollectionKindSchema = VocabSchema.extend({
+  /**
+   * Item kinds offered here.
+   *
+   * Optional rather than defaulted to `[]`, and the difference is load-bearing: absent
+   * means "not stated" and offers every kind, while `[]` is an explicit none, which is
+   * right for a task scored wholly by one rubric. Same distinction the codebase draws
+   * for `item.points` and for `levelPoints` — cleared is not zero.
+   */
+  itemKinds: z.array(ItemKindSchema).optional(),
+  /** Offer per-item points, answer keys and the item-kind picker. */
+  itemScoring: z.boolean().default(true),
+  sections: z.boolean().default(true),
+  /** Lead the screen with the collection's rubric rather than burying it in the header. */
+  rubricFirst: z.boolean().default(false)
 });
 
 /** A single rubric level. Ordered best-first wherever a list of these appears. */
@@ -105,7 +162,7 @@ export const VaultConfigSchema = z.looseObject({
   outcomePattern: z.string().optional(),
   /** Ordered, e.g. drafted → reviewed → ready → retired. */
   statuses: z.array(VocabSchema).default([]),
-  collectionKinds: z.array(VocabSchema).default([]),
+  collectionKinds: z.array(CollectionKindSchema).default([]),
   levelSets: z.array(LevelSetSchema).default([]),
   tagDimensions: z.array(TagDimensionSchema).default([]),
   customFields: z.array(FieldDefSchema).default([])
@@ -201,28 +258,6 @@ export const DiscussionSpecSchema = z.looseObject({
     })
     .default({})
 });
-
-/*
-  ItemKind is the one closed vocabulary in the model, and it is closed on purpose.
-
-  Unlike a status or a collection kind, each of these implies a different *shape* —
-  `choice` needs options, `group` needs parts, `stimulus` carries no points — so code
-  must branch on it and adding a member is a code change by definition. The predecessor
-  derived answer kind from content because Markdown had nowhere to declare it;
-  structured data does, so it is declared.
-
-  `matching` and `ordering` are plausible later additions. Nothing here forecloses them.
-*/
-export const ItemKindSchema = z.enum([
-  'choice', // options, exactly one correct
-  'multi', // options, two or more correct
-  'trueFalse', // two fixed options
-  'shortAnswer', // expected + accepted[], numeric or text
-  'essay', // expected as a model answer, optional rubric
-  'discussion', // stem as prompt + discussion spec + usually a rubric
-  'group', // container; worth the SUM of its parts
-  'stimulus' // shared passage/table/figure; carries no points
-]);
 
 /*
   Every field of an Item except `parts`.
@@ -352,6 +387,7 @@ export const VaultSnapshotSchema = z.looseObject({
 // ---------------------------------------------------------------------------
 
 export type Vocab = z.infer<typeof VocabSchema>;
+export type CollectionKind = z.infer<typeof CollectionKindSchema>;
 export type Level = z.infer<typeof LevelSchema>;
 export type LevelSet = z.infer<typeof LevelSetSchema>;
 export type TagDimension = z.infer<typeof TagDimensionSchema>;
