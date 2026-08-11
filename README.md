@@ -60,6 +60,7 @@ That is the staged build finished. Work continues past it, against a plan of its
 - [x] Stage 16 — shared rubric tails: boilerplate criteria written once, composed live
 - [x] Stage 17 — collection kinds decide what their editor offers, from settings
 - [x] Stage 18 — a formatting toolbar on every Markdown field
+- [x] Stage 19 — copy a course into next term's, and delete from the home list
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
@@ -77,6 +78,11 @@ Every text field takes Markdown, has a Preview toggle, and carries a small row o
 buttons — bold, italic, code, list, quote, link, table — for the syntax nobody remembers.
 They type the same characters you would, into the same box; ignore them and write it by hand
 if you prefer.
+
+**Copy…** beside a course on the home screen builds next term's from this one. The settings
+always come across; outcomes, rubrics, collections and items are each optional, and the usual
+answer is everything but the items — same structure, questions written fresh. The copy needs
+its own code, and that is the one thing the app refuses to let you skip.
 
 Each **collection kind** decides what its own editor offers — which item kinds appear on the
 add row, whether items are scored one by one, whether there are sections, whether it leads

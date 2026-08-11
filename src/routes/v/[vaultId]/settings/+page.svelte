@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { activeVault } from '$lib/stores/vault.svelte';
   import { vaultList } from '$lib/stores/vaults.svelte';
   import { plain } from '$lib/stores/plain.svelte';
@@ -36,6 +38,21 @@
 
   let confirmingDelete = $state(false);
   let deleteConfirmation = $state('');
+
+  /*
+    The home list links here with `#delete` rather than implementing deletion a second
+    time. That link has to land on something useful, so arriving with the hash opens the
+    confirmation — a collapsed card at the bottom of a long settings page is not what
+    someone who clicked "Delete…" was asking for.
+
+    It still only opens the confirmation. The course code has to be typed either way,
+    which is the guard, and no link can skip it.
+  */
+  onMount(() => {
+    if (page.url.hash !== '#delete') return;
+    confirmingDelete = true;
+    document.getElementById('delete')?.scrollIntoView({ block: 'center' });
+  });
 
   async function deleteVault() {
     if (!vault || deleteConfirmation !== vault.code) return;
@@ -155,30 +172,32 @@
       <CustomFieldsEditor bind:items={vault.config.customFields} />
     </Card>
 
-    <Card title="Delete this course">
-      {#if confirmingDelete}
-        <p class="text-sm text-text">
-          This removes the course and every outcome, collection, item and rubric in it.
-          There is no undo, and nothing is exported first.
-        </p>
-        <div class="mt-3 flex flex-wrap items-end gap-2">
-          <Field label="Type {vault.code} to confirm">
-            {#snippet children({ id })}
-              <TextInput {id} bind:value={deleteConfirmation} placeholder={vault.code} />
-            {/snippet}
-          </Field>
-          <Button
-            variant="danger"
-            disabled={deleteConfirmation !== vault.code}
-            onclick={deleteVault}
-          >
-            Delete permanently
-          </Button>
-          <Button variant="ghost" onclick={() => (confirmingDelete = false)}>Cancel</Button>
-        </div>
-      {:else}
-        <Button variant="danger" onclick={() => (confirmingDelete = true)}>Delete course…</Button>
-      {/if}
-    </Card>
+    <div id="delete" class="scroll-mt-4">
+      <Card title="Delete this course">
+        {#if confirmingDelete}
+          <p class="text-sm text-text">
+            This removes the course and every outcome, collection, item and rubric in it.
+            There is no undo, and nothing is exported first.
+          </p>
+          <div class="mt-3 flex flex-wrap items-end gap-2">
+            <Field label="Type {vault.code} to confirm">
+              {#snippet children({ id })}
+                <TextInput {id} bind:value={deleteConfirmation} placeholder={vault.code} />
+              {/snippet}
+            </Field>
+            <Button
+              variant="danger"
+              disabled={deleteConfirmation !== vault.code}
+              onclick={deleteVault}
+            >
+              Delete permanently
+            </Button>
+            <Button variant="ghost" onclick={() => (confirmingDelete = false)}>Cancel</Button>
+          </div>
+        {:else}
+          <Button variant="danger" onclick={() => (confirmingDelete = true)}>Delete course…</Button>
+        {/if}
+      </Card>
+    </div>
   </div>
 {/if}

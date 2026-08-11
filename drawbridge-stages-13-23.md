@@ -19,7 +19,7 @@ but only because the one-line summary happened to be right.
 | ✅ | 16 | Shared rubric tails — boilerplate criteria, composed live | **2 → 3** |
 | ✅ | 17 | Collection-kind capabilities — the task/item builder split | — |
 | ✅ | 18 | Markdown toolbar | — |
-| | 19 | Clone a course, and delete from the home list | — |
+| ✅ | 19 | Clone a course, and delete from the home list | — |
 | | 20 | Move items between collections | — |
 | | 21 | The write funnel — pure refactor, no new UI | — |
 | | 22 | Session journal — undo, redo, the staging area | — |
@@ -155,48 +155,30 @@ outside the selection.
 Seven icons joined `ui/icons.ts`. `bold` and `italic` are letterforms drawn as strokes — the
 never-text-glyphs rule has no exception for glyphs that happen to be ASCII.
 
----
+### Stage 19 — Clone a course, and delete from the home list
 
-## Stage 19 — Clone a course, and delete from the home list
+`domain/clone.ts` (`cloneSnapshot`, `codeIsTaken`, `suggestCode`), `vaultList.clone()`, and
+the `/v/[vaultId]/clone` route. Shipped as planned. `clone.test.ts` runs all sixteen include
+combinations against `validateVault` using the sample course as the fixture, which is the only
+thing in the repo carrying one of everything the stripping has to handle.
 
-**Delivers** a new course carrying this one's settings, with a choice of how much content
-comes with it. `importVault(await exportVault(id), 'new')` already yields an independent copy
-because `'new'` routes through `remapSnapshotIds`. Three things it gets wrong: name, code and
-timestamps copy verbatim.
+**The browser found a bug the tests could not.** The form checked the code against every
+course EXCEPT the one being copied — the reflex from a rename form, and wrong here, because a
+clone is a new record and its source's code is as much of a conflict as any other. It let the
+one collision the form exists to prevent straight through. `codeIsTaken` was unit-tested and
+correct; the call site was not. Fixed and re-verified.
 
-**The clone must change the code.** `code` is indexed and is the merge fallback key in
-`dexie.ts`, so two vaults sharing one makes a later merge-import pick an arbitrary row. That
-is a correctness requirement — the form blocks submit on a duplicate.
+**And the stale service worker cost a round.** The re-test after the fix still failed, because
+loading the app had registered a worker from the previous build and `registerType: 'prompt'`
+meant the rebuild sat waiting. The verification note at the bottom of this file says to
+unregister first; it needs doing again after every rebuild, not once per session.
 
-New `domain/clone.ts` — pure; filters and rewrites, then hands the result to
-`importVault(_, 'new')` for id remapping. **One remapper, not two.**
-
-```ts
-export function cloneSnapshot(snapshot, { name, code, term, include, now }): VaultSnapshot
-// include: { outcomes, rubrics, collections, items }
-```
-
-Where it goes wrong:
-- Excluding **rubrics** must strip `rubricId` from every collection and item and drop
-  `criterion.outcomeIds`. A new course opening with red dangling-reference errors is a bad
-  first impression.
-- Excluding **outcomes** must strip `outcomeIds` from items and criteria.
-- Excluding **collections** forces excluding items — an item with no collection is
-  unreachable. Enforce it; do not offer the combination.
-- Excluding **items** but keeping collections leaves shells. **This is the main case**: same
-  structure, same settings, new questions.
-- Restamp `createdAt`/`updatedAt` to `now`. A clone is new work, not a restore.
-- `VaultConfig` always comes across whole. That is the point.
-
-`vaults.svelte.ts` gains `clone(sourceId, options)` as a single method, so stage 21's retrofit
-is one line. New route `/v/[vaultId]/clone` — a route not a modal: seven controls, and it
-should survive a reload. `routes/+page.svelte` gains **Clone…** and **Delete…** per row;
-**delete is a link to `/v/{id}/settings#delete`**, not a second implementation.
-
-**Call `Autosave.flushAll()` before cloning** — `exportVault` reads storage, not the draft.
-
-**Tests.** `clone.test.ts` carries the weight: parameterise `validateVault` over all eight
-include combinations and assert no `error`-severity issues.
+Two additions the plan did not name: `suggestCode`, so the commonest answer is already typed
+in (`STAT101` → `STAT101-2`, and it does not stack suffixes when cloning a clone), and
+dropping `declaredPoints` when items stay behind — a declared total describes questions that
+are not coming, and carried onto an empty shell it reports itself as a points mismatch on the
+new course's first screen. Settings survive whole, though `remapSnapshotIds` mints new ids for
+the level sets, which is correct: the copy owns its own.
 
 ---
 

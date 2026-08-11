@@ -563,8 +563,26 @@
           </div>
         </dl>
         <p class="max-w-prose text-sm text-text-muted">
-          Deleting a course deletes everything in it and asks you to type the course code
-          first. There is no undo and no trash. Export before you do it.
+          <strong class="font-medium text-text">Copy…</strong> beside a course on the home
+          screen makes next term's from this one. The settings always come across — that is
+          the point of copying rather than starting over — and you choose how much content
+          follows: outcomes, rubrics, collections, items, each on its own. The usual answer
+          is everything except the items: same structure, same alignment, questions written
+          fresh. Items need their collections, so that pair cannot be split.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          The copy needs its own <strong class="font-medium text-text">code</strong>, and the
+          form will not submit until it has one. This is the one place Drawbridge blocks you
+          rather than advising: importing a bundle later matches on the code when the ids do
+          not line up, so two courses sharing one would let a restore overwrite the wrong
+          course. Anything you leave out is simply absent — nothing arrives pointing at a
+          rubric or an outcome that did not come with it.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">Delete…</strong> beside a course goes to the
+          same place as the button at the bottom of this screen. Deleting a course deletes
+          everything in it and asks you to type the course code first. There is no undo and
+          no trash. Export before you do it.
         </p>
       </section>
 

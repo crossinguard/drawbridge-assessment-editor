@@ -91,24 +91,53 @@
           No courses yet. Create one below to get started.
         </p>
       {:else}
+        <!--
+          The row is a container with links inside it, not one big link. Nesting a
+          button or a second anchor inside an anchor is invalid, and browsers resolve it
+          by guessing.
+        -->
         <ul class="flex flex-col gap-2">
           {#each vaultList.items as vault (vault.id)}
-            <li>
+            <li
+              class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border
+                     border-border-subtle bg-surface px-4 py-3 transition-colors
+                     hover:border-border-strong hover:bg-surface-raised"
+            >
               <a
                 href="/v/{vault.id}"
-                class="flex items-center justify-between gap-4 rounded-lg border border-border-subtle
-                       bg-surface px-4 py-3 transition-colors hover:border-border-strong
-                       hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-offset-2
+                class="min-w-0 grow rounded-md focus-visible:outline-2 focus-visible:outline-offset-2
                        focus-visible:outline-accent"
               >
-                <span class="min-w-0">
-                  <span class="block truncate text-sm font-medium text-text">{vault.name}</span>
-                  <span class="block truncate text-xs text-text-muted">
-                    {vault.code}{vault.term ? ` · ${vault.term}` : ''}
-                  </span>
+                <span class="block truncate text-sm font-medium text-text">{vault.name}</span>
+                <span class="block truncate text-xs text-text-muted">
+                  {vault.code}{vault.term ? ` · ${vault.term}` : ''}
                 </span>
-                <span aria-hidden="true" class="text-text-muted">→</span>
               </a>
+              <span class="flex shrink-0 items-center gap-1">
+                <a
+                  href="/v/{vault.id}/clone"
+                  class="rounded-md px-2 py-1 text-xs text-text-muted transition-colors
+                         hover:bg-surface-raised hover:text-text focus-visible:outline-2
+                         focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  Copy…
+                </a>
+                <!--
+                  A link to the settings screen's own delete block, not a second
+                  implementation of deleting. That block asks for the course code typed
+                  out, and two confirmations that drift apart is how the weaker one ends
+                  up being the one that runs.
+                -->
+                <a
+                  href="/v/{vault.id}/settings#delete"
+                  class="rounded-md px-2 py-1 text-xs text-text-muted transition-colors
+                         hover:bg-surface-raised hover:text-danger focus-visible:outline-2
+                         focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  Delete…
+                </a>
+                <span aria-hidden="true" class="pl-1 text-text-muted">→</span>
+              </span>
             </li>
           {/each}
         </ul>

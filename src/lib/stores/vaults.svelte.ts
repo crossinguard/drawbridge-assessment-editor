@@ -1,6 +1,9 @@
 import { repository } from '$lib/repo';
+import { cloneSnapshot, type CloneOptions } from '$lib/domain/clone';
 import { newVault } from '$lib/domain/defaults';
+import { nowIso } from '$lib/domain/ids';
 import type { Vault } from '$lib/domain/schema';
+import { Autosave } from './autosave.svelte';
 import { plain } from './plain.svelte';
 
 /*
@@ -55,6 +58,30 @@ class VaultListStore {
   async remove(id: string): Promise<void> {
     await repository.deleteVault(id);
     await this.load();
+  }
+
+  /**
+   * Copies a course, carrying its settings and as much content as was asked for.
+   *
+   * One method rather than a sequence the route performs, so that when the write funnel
+   * lands there is a single place to retrofit.
+   *
+   * The `flushAll()` is not optional. `exportVault` reads STORAGE, and the settings
+   * screen writes on a debounce — so cloning straight after editing a status label
+   * would copy the course as it was a second ago, and the difference would be invisible
+   * until someone went looking for a vocabulary entry that never arrived.
+   */
+  async clone(sourceId: string, options: Omit<CloneOptions, 'now'>): Promise<string> {
+    await Autosave.flushAll();
+
+    const snapshot = await repository.exportVault(sourceId);
+    const copy = cloneSnapshot(snapshot, { ...options, now: nowIso() });
+
+    // 'new' rather than 'merge', which is what routes this through `remapSnapshotIds`
+    // and makes the copy independent. Cloning does not remap anything itself.
+    const result = await repository.importVault(plain(copy), 'new');
+    await this.load();
+    return result.vaultId;
   }
 }
 

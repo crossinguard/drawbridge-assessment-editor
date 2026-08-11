@@ -136,6 +136,14 @@ carries no meaning — and is not worth trading the guarantee above to fix.)
 **Deleting cascades.** Removing a collection removes its items; `deleteVault` removes
 everything beneath it. Anything that adds a new owned entity has to extend both.
 
+**A course code has to be unique, and that is correctness rather than tidiness.** `code` is
+indexed and is the fallback `importVault` matches on when ids do not line up, so two vaults
+sharing one lets a later merge-import overwrite an arbitrary course. `domain/clone.ts` exports
+`codeIsTaken` and the clone form blocks submit on it — the one place in this app that refuses
+input rather than advising. It compares case-insensitively, which is stricter than the
+case-sensitive index, because two courses differing only in case are the same course to
+whoever is reading the list.
+
 ### Store and UI invariants
 
 **Everything crossing into the repository goes through `plain()`** (`stores/plain.svelte.ts`).
@@ -367,6 +375,32 @@ most of a tree as a problem and bury the real ones.
 **A problem you cannot navigate to is only half reported.** `review.linkFor(issue)` resolves
 an issue to the screen that can fix it. Issue ids for nested things are `parentId:childId`,
 so only the first segment is an entity.
+
+### Cloning a course
+
+**`domain/clone.ts` filters and rewrites; `importVault(_, 'new')` does the ids.** There is
+exactly ONE remapper in this codebase and `cloneSnapshot` returns a snapshot with the
+original ids still in place, precisely so it does not become a second. It is pure, which is
+what lets `clone.test.ts` run all sixteen include combinations rather than a chosen few.
+
+**Anything left out has to be unreferenced, not merely absent.** Excluding rubrics strips
+`rubricId` from collections and items; excluding outcomes strips `outcomeIds` from items,
+from a group's parts, and from criteria. Dangling references are `error` severity —
+correctly, they are broken — and a copy that opens red is the worst first impression the
+feature could make.
+
+**Items without collections is impossible, not discouraged.** An item whose collection did
+not come across is unreachable: no screen could show it. The form disables the combination
+and `cloneSnapshot` enforces it anyway, which is the half that holds when the UI is wrong.
+
+**A clone is new work, so every record is restamped** — both `createdAt` and `updatedAt`.
+A restore keeps its timestamps; a copy does not. `declaredPoints` is dropped when items stay
+behind, because a declared total describes questions that are not coming and would report
+itself as a mismatch on the new course's first screen.
+
+**`vaultList.clone()` flushes the autosaves first.** `exportVault` reads STORAGE, and the
+settings screen writes on a debounce, so cloning straight after editing a status label would
+otherwise copy the course as it was a second ago.
 
 ### Collection kinds
 
@@ -609,7 +643,7 @@ what a term of real use surfaced: controls and focus (13), a loadable sample cou
 per-criterion rubric points (15), shared rubric tails (16), collection-kind capabilities and
 the task/item split (17), a Markdown toolbar (18), cloning a course (19), moving items between
 collections (20), a write funnel (21), the session journal and undo (22), and a command
-palette (23). **Stages 13 to 18 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
+palette (23). **Stages 13 to 19 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
 not bump again — stage 17 added fields an older reader ignores to show a busier editor, which
 is exactly the case that is NOT a bump. That file carries the per-stage detail — schema shapes, the decisions already made,
 and what each stage is most likely to get wrong.
