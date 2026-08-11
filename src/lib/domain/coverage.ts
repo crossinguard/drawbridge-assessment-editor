@@ -1,4 +1,5 @@
 import { criterionMax, flattenItems, itemPoints, type ScoringContext } from './points';
+import { effectiveCriteria } from './rubrics';
 import { leavesOf } from './outcomes';
 import type { Collection, Item, Outcome } from './schema';
 
@@ -87,8 +88,11 @@ function contributionsOf(item: Item, context: ScoringContext): Map<string, numbe
   if (item.rubricId !== undefined) {
     const rubric = context.rubricsById.get(item.rubricId);
     if (rubric) {
-      for (const criterion of rubric.criteria) {
-        const max = criterionMax(criterion, rubric.levels);
+      // Effective, not own: an outcome aligned only on a criterion the rubric inherits
+      // from a tail is still assessed, and reading it as a gap would send the author
+      // looking for a hole that is not there.
+      for (const { criterion, source } of effectiveCriteria(rubric, context.rubricsById)) {
+        const max = criterionMax(criterion, source.levels);
         for (const outcomeId of criterion.outcomeIds) record(outcomeId, max);
       }
     }
@@ -142,8 +146,9 @@ export function computeCoverage(input: CoverageInput): CoverageReport {
     // would read as covering nothing.
     if (collection.rubricId !== undefined) {
       const rubric = context.rubricsById.get(collection.rubricId);
-      for (const criterion of rubric?.criteria ?? []) {
-        const max = criterionMax(criterion, rubric?.levels ?? []);
+      const composed = rubric ? effectiveCriteria(rubric, context.rubricsById) : [];
+      for (const { criterion, source } of composed) {
+        const max = criterionMax(criterion, source.levels);
         for (const outcomeId of criterion.outcomeIds) {
           if (!knownOutcomeIds.has(outcomeId)) {
             danglingOutcomeIds.add(outcomeId);

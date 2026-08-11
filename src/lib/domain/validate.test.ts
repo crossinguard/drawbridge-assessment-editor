@@ -254,6 +254,48 @@ describe('rubric rules', () => {
     expect(ruleIds(issues)).toContain('rubric.orphan-level-points');
   });
 
+  it('reports an append naming a rubric that is gone', () => {
+    // The grid just comes out shorter. Nothing on screen distinguishes that from a
+    // rubric that never appended anything, which is why it has to be said.
+    const orphan = aRubric({ levels: fourPoint, appends: ['deleted-rubric'] });
+    expect(ruleIds(check({ rubrics: [orphan] }))).toContain('rubric.dangling-append');
+  });
+
+  it('reports an append loop, which terminates but still loses criteria', () => {
+    const a = aRubric({ id: 'a', title: 'A', levels: fourPoint, appends: ['b'] });
+    const b = aRubric({ id: 'b', title: 'B', levels: fourPoint, appends: ['a'] });
+
+    const rules = ruleIds(check({ rubrics: [a, b] }));
+    expect(rules).toContain('rubric.append-cycle');
+    expect(rules).not.toContain('rubric.dangling-append');
+  });
+
+  it('mentions a tail that has no criteria to contribute', () => {
+    const empty = aRubric({ id: 'tail', title: 'Professionalism', levels: fourPoint });
+    const host = aRubric({ id: 'host', title: 'Report', levels: fourPoint, appends: ['tail'] });
+
+    const issues = check({ rubrics: [host, empty] });
+    const note = issues.find((issue) => issue.ruleId === 'rubric.append-empty');
+    expect(note?.severity).toBe('info');
+  });
+
+  it('says nothing about an ordinary shared tail', () => {
+    // Two rubrics appending the same tail is the intended use. If this fires, the
+    // panel cries wolf on the feature's happy path.
+    const tail = aRubric({
+      id: 'tail',
+      levels: fourPoint,
+      criteria: [aCriterion('On time', fourPoint)]
+    });
+    const one = aRubric({ id: 'one', levels: fourPoint, appends: ['tail'] });
+    const two = aRubric({ id: 'two', levels: fourPoint, appends: ['tail'] });
+
+    const rules = ruleIds(check({ rubrics: [one, two, tail] }));
+    expect(rules).not.toContain('rubric.dangling-append');
+    expect(rules).not.toContain('rubric.append-cycle');
+    expect(rules).not.toContain('rubric.append-empty');
+  });
+
   it('says nothing about points that are keyed to levels the rubric has', () => {
     const weighted = aCriterion('Clarity', fourPoint, {
       levelPoints: Object.fromEntries(fourPoint.map((level, index) => [level.id, 10 - index]))

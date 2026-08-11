@@ -358,6 +358,82 @@ describe('a rubric as a document', () => {
     expect(text).toContain('| Criterion | Exemplary (4 pt) | Proficient (3 pt) |');
   });
 
+  it('draws an appended tail as its own table, against its own levels', () => {
+    /*
+      Two tables rather than one, because the rows below are scored on a different
+      scale. Merged, the reader would have a 2-point criterion sitting under a column
+      headed "Exemplary (4 pt)" with no way to tell which number applied.
+    */
+    const hostLevels = levels(['Exemplary', 4], ['Proficient', 3]);
+    const tailLevels = levels(['Met', 2], ['Not met', 0]);
+    const tail = aRubric({
+      id: 'tail',
+      vaultId: vault.id,
+      title: 'Professionalism',
+      levels: tailLevels,
+      criteria: [aCriterion('On time', tailLevels)]
+    });
+    const host = aRubric({
+      id: 'host',
+      vaultId: vault.id,
+      title: 'Written report',
+      levels: hostLevels,
+      criteria: [aCriterion('Thesis', hostLevels)],
+      appends: [tail.id]
+    });
+
+    const text = rubricMarkdown(host, contextFor({ rubrics: [host, tail] }));
+
+    // 4 from the host's own criterion, 2 from the tail's — not 4 and 4.
+    expect(text).toContain('Worth up to 6 pt');
+    expect(text).toContain('## Appended from Professionalism');
+    expect(text).toContain('| Criterion | Exemplary (4 pt) | Proficient (3 pt) |');
+    expect(text).toContain('| Criterion | Met (2 pt) | Not met (0 pt) |');
+    expect(text).toContain('scored against ITS levels');
+    // The inherited row states its own maximum, on its own scale.
+    expect(text).toContain('worth up to 2 pt');
+  });
+
+  it('links a tail to its document when the bundle holds one', () => {
+    const tailLevels = levels(['Met', 2], ['Not met', 0]);
+    const tail = aRubric({
+      id: 'tail',
+      vaultId: vault.id,
+      title: 'Professionalism',
+      levels: tailLevels,
+      criteria: [aCriterion('On time', tailLevels)]
+    });
+    const host = aRubric({
+      id: 'host',
+      vaultId: vault.id,
+      title: 'Written report',
+      levels: levels(['Exemplary', 4]),
+      criteria: [aCriterion('Thesis', levels(['Exemplary', 4]))],
+      appends: [tail.id]
+    });
+
+    const context = contextFor({ rubrics: [host, tail] }, new Map([['tail', 'professionalism']]));
+
+    // Sibling path: both documents sit in rubrics/.
+    expect(rubricMarkdown(host, context)).toContain('](./professionalism.md)');
+  });
+
+  it('says a tail is missing rather than quietly shortening the grid', () => {
+    const host = aRubric({
+      id: 'host',
+      vaultId: vault.id,
+      title: 'Written report',
+      levels: levels(['Exemplary', 4]),
+      criteria: [aCriterion('Thesis', levels(['Exemplary', 4]))],
+      appends: ['deleted-rubric']
+    });
+
+    const text = rubricMarkdown(host, contextFor({ rubrics: [host] }));
+    // The document renders; validate.ts is where the problem is reported.
+    expect(text).toContain('Worth up to 4 pt');
+    expect(text).not.toContain('## Appended from');
+  });
+
   it('leaves a rubric on a plain shared scale reading exactly as it did', () => {
     // The explanatory line earns its place only where it explains something.
     const rubric = grid();

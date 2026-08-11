@@ -317,7 +317,21 @@ export const RubricSchema = z.looseObject({
   description: z.string().optional(),
   /** Ordered best-first, from a LevelSet or bespoke. */
   levels: z.array(LevelSchema).default([]),
-  criteria: z.array(CriterionSchema).default([])
+  criteria: z.array(CriterionSchema).default([]),
+  /**
+   * Rubrics whose criteria are appended, in order, after this rubric's own — the
+   * boilerplate tail a course repeats on every task. Composed live, so editing the tail
+   * updates every rubric using it.
+   *
+   * An array because "professionalism tail" plus "citation tail" is one course away.
+   * The UI offers one picker; the schema does not need to be revisited when it offers
+   * two.
+   *
+   * An appended criterion is scored against ITS OWN rubric's levels, never the host's.
+   * See `effectiveCriteria` in `rubrics.ts` — that is the decision this whole feature
+   * rests on.
+   */
+  appends: z.array(z.string()).default([])
 });
 
 // ---------------------------------------------------------------------------

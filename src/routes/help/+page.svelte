@@ -415,6 +415,22 @@
           never reaches into rubrics already built from it.
         </p>
         <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">A rubric can append another one as a
+          shared tail.</strong> Write the professionalism boilerplate once as its own rubric,
+          then add it under <em>Shared tails</em> on every rubric that needs it. The borrowed
+          criteria appear after that rubric's own, in their own table below the grid, and they
+          are read-only there — they belong to the tail, and editing them on its own screen
+          changes every rubric appending it. Removing a tail from this rubric leaves the tail
+          itself alone.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          A tail keeps its own levels, and is scored on them. A two-point Met / Not met tail
+          on a six-point rubric adds two points, not six — which is why it gets its own table
+          with its own column headings rather than being folded into the grid above. The
+          rubric list shows how many rubrics append each one, and deleting a rubric that
+          others append says so before it goes.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
           A criterion can be aligned to outcomes of its own. Those count towards coverage,
           which is how a task assessed entirely by one rubric shows up as covering anything at
           all.

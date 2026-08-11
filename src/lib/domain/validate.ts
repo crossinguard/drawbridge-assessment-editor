@@ -1,5 +1,6 @@
 import { collectionPoints, flattenItems, itemPoints, type ScoringContext } from './points';
 import { computeCoverage } from './coverage';
+import { hasAppendCycle } from './rubrics';
 import { unreachableOutcomes } from './outcomes';
 import type { Collection, Item, Outcome, Rubric, Vault } from './schema';
 
@@ -196,6 +197,54 @@ export function validateVault(input: ValidationInput): Issue[] {
           'rubric',
           rubric.id,
           `"${rubric.title}" has no criteria yet.`
+        )
+      );
+    }
+
+    /*
+      Tails. All three are about a composed grid quietly coming out shorter than the
+      author thinks it is — there is no screen on which a missing inherited criterion
+      announces itself, because a rubric that never had one looks exactly the same.
+    */
+    for (const appendedId of rubric.appends) {
+      const tail = rubricsById.get(appendedId);
+      if (!tail) {
+        issues.push(
+          issue(
+            'rubric.dangling-append',
+            'error',
+            'rubric',
+            rubric.id,
+            `"${rubric.title}" appends a rubric that no longer exists, so those criteria are missing from its grid and its total.`
+          )
+        );
+      } else if (tail.criteria.length === 0) {
+        issues.push(
+          issue(
+            'rubric.append-empty',
+            'info',
+            'rubric',
+            rubric.id,
+            `"${rubric.title}" appends "${tail.title}", which has no criteria yet, so it adds nothing.`
+          )
+        );
+      }
+    }
+
+    /*
+      A cycle terminates rather than hanging — `effectiveCriteria` stops at the repeat —
+      but terminating is not the same as being right: whichever rubric is reached first
+      claims its criteria and the second visit contributes nothing, so part of the tail
+      silently disappears from the grid.
+    */
+    if (hasAppendCycle(rubric, rubricsById)) {
+      issues.push(
+        issue(
+          'rubric.append-cycle',
+          'error',
+          'rubric',
+          rubric.id,
+          `"${rubric.title}" appends a rubric that leads back to it. The loop is broken where it repeats, so some criteria will be missing from the grid.`
         )
       );
     }

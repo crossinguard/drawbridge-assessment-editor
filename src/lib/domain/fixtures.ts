@@ -91,3 +91,13 @@ export function aRubric(overrides: Partial<Rubric> = {}): Rubric {
 export function scoringContext(...rubrics: Rubric[]) {
   return { rubricsById: new Map(rubrics.map((rubric) => [rubric.id, rubric])) };
 }
+
+/**
+ * For a total that involves no shared tails.
+ *
+ * `rubricTotal` takes a required context so a caller cannot silently drop tails, which
+ * leaves the many tests that predate tails needing something to pass. Naming it says
+ * "this rubric appends nothing" rather than leaving an unexplained `scoringContext()`
+ * at the end of every assertion.
+ */
+export const noTails = scoringContext();

@@ -162,3 +162,63 @@ describe('computeCoverage', () => {
     expect(result.cells).toEqual([]);
   });
 });
+
+describe('coverage through a shared tail', () => {
+  const hostLevels = levels(['Exemplary', 4], ['Beginning', 1]);
+  const tailLevels = levels(['Met', 2], ['Not met', 0]);
+
+  function pair() {
+    const tail = aRubric({
+      id: 'tail',
+      levels: tailLevels,
+      criteria: [aCriterion('Sources credited', tailLevels, { outcomeIds: ['eo12'] })]
+    });
+    const host = aRubric({
+      id: 'host',
+      levels: hostLevels,
+      criteria: [aCriterion('Thesis', hostLevels, { outcomeIds: ['eo11'] })],
+      appends: [tail.id]
+    });
+    return { host, tail };
+  }
+
+  it('reaches an outcome aligned only on an inherited criterion', () => {
+    /*
+      Without this the outcome reads as a gap on the coverage screen and in the
+      uncovered list, and the author goes looking for a hole that is not there — the
+      assessment does cover it, through the tail.
+    */
+    const { host, tail } = pair();
+    const task = aCollection({ id: 'task' });
+    const essay = anItem('essay', { collectionId: 'task', rubricId: host.id });
+
+    const result = report([task], { task: [essay] }, scoringContext(host, tail));
+
+    expect(coverageAt(result, 'eo11', 'task').points).toBe(4);
+    // The tail's criterion, at the TAIL's best level. Scored against the host's levels
+    // this would read 4, which is the specific silent wrong answer.
+    expect(coverageAt(result, 'eo12', 'task').points).toBe(2);
+    expect(result.uncoveredOutcomeIds).toEqual([]);
+  });
+
+  it('reaches it through a rubric on the collection itself, too', () => {
+    // The other criterionMax call site in this file, and it is a separate branch.
+    const { host, tail } = pair();
+    const task = aCollection({ id: 'task', rubricId: host.id });
+
+    const result = report([task], { task: [] }, scoringContext(host, tail));
+
+    expect(coverageAt(result, 'eo12', 'task')).toEqual({ itemCount: 0, points: 2 });
+    expect(result.uncoveredOutcomeIds).toEqual([]);
+  });
+
+  it('treats a tail that has been deleted as simply absent', () => {
+    const { host } = pair();
+    const task = aCollection({ id: 'task', rubricId: host.id });
+
+    const result = report([task], { task: [] }, scoringContext(host));
+
+    expect(coverageAt(result, 'eo11', 'task').points).toBe(4);
+    expect(result.uncoveredOutcomeIds).toEqual(['eo12']);
+  });
+});

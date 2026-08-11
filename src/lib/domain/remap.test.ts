@@ -10,6 +10,8 @@ import {
   anOutcome,
   aVault,
   levels,
+  noTails,
+  scoringContext,
   worth
 } from './fixtures';
 
@@ -58,12 +60,23 @@ function aSnapshot(): VaultSnapshot {
   });
   const essay = anItem('essay', { collectionId: collection.id, rubricId: rubric.id });
 
+  // A shared tail, so `appends` is a live reference in every assertion below rather
+  // than an empty array that would pass whatever remap did with it.
+  const tailLevels = levels(['Met', 2], ['Not met', 0]);
+  const tail = aRubric({
+    vaultId: vault.id,
+    title: 'Professionalism',
+    levels: tailLevels,
+    criteria: [aCriterion('On time', tailLevels)]
+  });
+  rubric.appends = [tail.id];
+
   return VaultSnapshotSchema.parse({
     vault,
     outcomes: [parent, child],
     collections: [collection],
     items: [stimulus, group, essay],
-    rubrics: [rubric]
+    rubrics: [rubric, tail]
   });
 }
 
@@ -141,8 +154,30 @@ describe('remapSnapshotIds', () => {
     expect(Object.keys(criterion?.levelPoints ?? {})).toEqual(
       rubric?.levels.map((level) => level.id)
     );
-    expect(rubricTotal(rubric!)).toBe(rubricTotal(original.rubrics[0]!));
-    expect(rubricTotal(rubric!)).toBe(10);
+    expect(rubricTotal(rubric!, noTails)).toBe(rubricTotal(original.rubrics[0]!, noTails));
+    expect(rubricTotal(rubric!, noTails)).toBe(10);
+  });
+
+  it('remaps a shared tail, so an imported course appends its OWN rubric', () => {
+    /*
+      `remap.ts` is the file that gets forgotten, and it broke exactly this way one
+      stage ago. Left alone, `appends` would still hold the ids of the course this
+      bundle was copied from: importing alongside the original would silently compose
+      the OTHER course's tail into this one's grid, and on a machine that never had the
+      original it would point at nothing at all.
+    */
+    const original = aSnapshot();
+    const { snapshot } = remapSnapshotIds(original, counter());
+    const [host, tail] = snapshot.rubrics;
+
+    expect(host?.appends).toEqual([tail?.id]);
+    for (const id of host?.appends ?? []) {
+      expect(original.rubrics.map((r) => r.id)).not.toContain(id);
+    }
+    // And the composition still works, which is the thing anyone would actually notice.
+    expect(rubricTotal(host!, scoringContext(host!, tail!))).toBe(
+      rubricTotal(original.rubrics[0]!, scoringContext(...original.rubrics))
+    );
   });
 
   it('leaves a reference to something outside the bundle alone', () => {
@@ -172,7 +207,8 @@ describe('remapSnapshotIds', () => {
           /^(id|vaultId|collectionId|sectionId|parentId|rubricId|stimulusId)$/.test(key) ||
           key === 'outcomeIds' ||
           key === 'descriptors' ||
-          key === 'levelPoints'
+          key === 'levelPoints' ||
+          key === 'appends'
             ? undefined
             : value
         )

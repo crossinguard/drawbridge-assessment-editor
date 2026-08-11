@@ -3,6 +3,7 @@ import { sampleSnapshot } from './sample';
 import { VaultSnapshotSchema } from './schema';
 import { validateVault } from './validate';
 import { flattenItems, rubricTotal } from './points';
+import { noTails, scoringContext } from './fixtures';
 
 /*
   What makes a hand-written fixture worth shipping is that these hold. The sample is
@@ -132,7 +133,30 @@ describe('the sample course', () => {
     // And it has to actually change the total, or it demonstrates nothing.
     const shown = rubrics.find((rubric) => rubric.criteria.some((c) => weighted.includes(c)))!;
     const flat = shown.criteria.map((criterion) => ({ ...criterion, levelPoints: {} }));
-    expect(rubricTotal(shown)).not.toBe(rubricTotal({ ...shown, criteria: flat }));
+    expect(rubricTotal(shown, noTails)).not.toBe(rubricTotal({ ...shown, criteria: flat }, noTails));
+  });
+
+  it('shows a shared tail, appended rather than copied', () => {
+    /*
+      And on a SHORTER scale than the rubric appending it, which is the whole design in
+      one number: the tail contributes its own best level, not the host's. A demo where
+      both scales matched would look identical whether or not the code got that right.
+    */
+    const snapshot = sampleSnapshot();
+    const context = scoringContext(...snapshot.rubrics);
+    const host = snapshot.rubrics.find((rubric) => rubric.appends.length > 0);
+
+    expect(host).toBeDefined();
+    const tail = snapshot.rubrics.find((rubric) => rubric.id === host!.appends[0]);
+    expect(tail).toBeDefined();
+
+    const tailBest = Math.max(...tail!.levels.map((level) => level.points));
+    const hostBest = Math.max(...host!.levels.map((level) => level.points));
+    expect(tailBest).toBeLessThan(hostBest);
+
+    // The composed total is the host's plus the tail's own maximum per criterion.
+    const alone = rubricTotal({ ...host!, appends: [] }, context);
+    expect(rubricTotal(host!, context)).toBe(alone + tailBest * tail!.criteria.length);
   });
 
   it('shows every item kind the app has', () => {

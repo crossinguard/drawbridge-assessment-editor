@@ -5,6 +5,7 @@ import {
   aRubric,
   anItem,
   levels,
+  noTails,
   scoringContext,
   worth
 } from './fixtures';
@@ -45,12 +46,12 @@ describe('rubric scoring', () => {
         aCriterion('Mechanics', fourPoint)
       ]
     });
-    expect(rubricTotal(rubric)).toBe(12);
+    expect(rubricTotal(rubric, noTails)).toBe(12);
   });
 
   it('scores a rubric with no levels at zero rather than failing', () => {
     const rubric = aRubric({ levels: [], criteria: [aCriterion('Clarity', [])] });
-    expect(rubricTotal(rubric)).toBe(0);
+    expect(rubricTotal(rubric, noTails)).toBe(0);
   });
 
   it("lets a criterion set its own points, so one can matter more than another", () => {
@@ -66,7 +67,7 @@ describe('rubric scoring', () => {
       levels: fourPoint,
       criteria: [thesis, aCriterion('Mechanics', fourPoint)]
     });
-    expect(rubricTotal(rubric)).toBe(14);
+    expect(rubricTotal(rubric, noTails)).toBe(14);
   });
 
   it('falls back to the column for a level the criterion does not override', () => {
@@ -90,7 +91,7 @@ describe('rubric scoring', () => {
 
     expect(pointsAt(zeroed, scale[0]!)).toBe(0);
     expect(criterionMax(zeroed, scale)).toBe(0);
-    expect(rubricTotal(aRubric({ levels: scale, criteria: [zeroed] }))).toBe(0);
+    expect(rubricTotal(aRubric({ levels: scale, criteria: [zeroed] }), noTails)).toBe(0);
   });
 
   it('takes the best override even when the overrides do not descend', () => {

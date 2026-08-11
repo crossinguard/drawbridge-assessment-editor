@@ -192,10 +192,12 @@ opposite of what a demo needs.
 independent courses when loaded twice. It is an ordinary vault the user can edit and delete,
 not a shared demo.
 
-**It shows the features, not just the shapes.** Every item kind appears, and so does a
-criterion carrying its own `levelPoints` — a grid where every row is worth the same looks
-like the only kind there is. `sample.test.ts` pins both, the second by checking the
-override actually moves the total.
+**It shows the features, not just the shapes.** Every item kind appears; so does a criterion
+carrying its own `levelPoints`, and a "Professionalism" rubric appended as a shared tail — a
+grid where every row is worth the same looks like the only kind there is. The tail is on a
+deliberately SHORTER scale than the rubric appending it (2 against 6), because a demo where
+both scales matched would look identical whether or not the code scored it correctly.
+`sample.test.ts` pins all three, the last two by checking the totals actually move.
 
 **It contains a deliberately unfinished item and one uncovered outcome.** `sample.test.ts`
 pins both halves: no `error`-severity issue anywhere (a demo that opens red teaches the wrong
@@ -377,6 +379,29 @@ outright and in the unit the reader already understands, so applying a multiplie
 would be a second way to express one idea and a way for the two to disagree.
 `rubric.weight-not-applied` says so and names the replacement.
 
+**A rubric can APPEND another as a shared tail, and a tail is scored against ITS OWN
+levels.** `Rubric.appends` holds rubric ids; `effectiveCriteria(rubric, rubricsById)` composes
+own criteria then inherited ones, carrying the source rubric with each. `rubricTotal` reduces
+`criterionMax(entry.criterion, entry.source.levels)` — never `rubric.levels`. Score a tail
+against the host's levels and every `levelPoints` lookup misses, because those are keyed by
+the TAIL's level ids: the overrides silently fall back to the host's column points and every
+descriptor renders blank, with nothing raising an error. It is also the answer that matches
+expectation — a 2-point tail on a 4-point rubric adds 2.
+
+**`context` on `rubricTotal` is required, not optional.** Every call site already holds one.
+An optional context would make "the total, minus any tails, if the caller forgot" a thing the
+type system could have prevented.
+
+**`applyLevels`, `withoutLevel` and `descriptorCoverage` take `rubric.criteria` — never
+`effectiveCriteria`.** An inherited criterion belongs to another record; rewriting its
+descriptors from a screen that is not editing it would change every rubric sharing that tail.
+"Make the grid editor work on the whole grid" is the sentence that starts that bug.
+
+**The composed grid is not rectangular, so the tail renders as its own sub-table** — own
+column headings, read-only cells, a link to edit it where it lives. One table would put two
+scales under one set of headings with no way to tell which row used which. Same split in
+`export/markdown.ts`.
+
 **`applyLevels` carries descriptors AND points overrides across BY POSITION.** The incoming
 levels are fresh objects with fresh ids, so matching on id finds nothing and blanks the
 grid. Position is the only correspondence available and the right one: swapping a
@@ -440,9 +465,11 @@ untouched: a leading `=` is left alone, because the usual defence corrupts the d
 
 **`SCHEMA_VERSION` bumps only when an older reader would MISREAD a newer bundle.** Adding a
 file, or a field that older code carries through as an unknown key, is not a reason. It is
-2, for `Criterion.levelPoints`: version 1 preserves it as an unknown key but scores around
-it, so rubric totals, the items those rubrics score and their collection totals all come
-out lower with nothing to show anything was ignored.
+3, and both bumps are the same failure: an older reader keeps the field as an unknown key
+and scores around it, so rubric totals, the items those rubrics score and their collection
+totals all come out lower with nothing to show anything was ignored. 2 was
+`Criterion.levelPoints` — every criterion reverts to its column heading. 3 is
+`Rubric.appends` — a composed rubric loses its inherited criteria entirely.
 
 **Last-export time lives in localStorage, not on the vault.** Stored on the record it would
 travel inside the bundle, so restoring a backup would report that you had just exported —
@@ -514,9 +541,9 @@ what a term of real use surfaced: controls and focus (13), a loadable sample cou
 per-criterion rubric points (15), shared rubric tails (16), collection-kind capabilities and
 the task/item split (17), a Markdown toolbar (18), cloning a course (19), moving items between
 collections (20), a write funnel (21), the session journal and undo (22), and a command
-palette (23). **Stages 13, 14 and 15 are done**, taking `SCHEMA_VERSION` to 2. It bumps once
-more, at 16, and nowhere else. That file carries the per-stage detail — schema shapes, the
-decisions already made, and what each stage is most likely to get wrong.
+palette (23). **Stages 13 to 16 are done**, taking `SCHEMA_VERSION` to 3. It does not bump
+again. That file carries the per-stage detail — schema shapes, the decisions already made,
+and what each stage is most likely to get wrong.
 
 Deliberately not built yet:
 

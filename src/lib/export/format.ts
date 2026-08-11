@@ -30,8 +30,11 @@ import {
  *     items scored by that rubric and their collection totals all come out lower with
  *     no sign that anything was ignored. Silently wrong arithmetic is the case this
  *     number exists for.
+ * 3 — `Rubric.appends`. The same misread one field along: a version 2 reader keeps the
+ *     key and ignores it, so a rubric composed from a shared tail loses those criteria
+ *     from its grid and their points from every total downstream.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const PATHS = {
   readme: 'README.md',

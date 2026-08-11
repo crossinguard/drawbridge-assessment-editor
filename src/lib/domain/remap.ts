@@ -123,6 +123,10 @@ export function remapSnapshotIds(
         id: ref(rubric.id),
         vaultId: newVaultId,
         levels: rubric.levels.map((level) => ({ ...level, id: ref(level.id) })),
+        // Rubric ids, so they remap like any other reference. Left alone, an imported
+        // course's tails would point back at the rubrics of the course it was copied
+        // from — or at nothing, in a bundle opened on another machine.
+        appends: rubric.appends.map(ref),
         criteria: rubric.criteria.map((criterion) => ({
           ...criterion,
           id: ref(criterion.id),

@@ -16,7 +16,7 @@ but only because the one-line summary happened to be right.
 | ✅ | 13 | Controls and focus — hit targets, drawn icons, keyboard | — |
 | ✅ | 14 | A sample course, loadable from the home screen | — |
 | ✅ | 15 | Per-criterion points (`Criterion.levelPoints`) | **1 → 2** |
-| | 16 | Shared rubric tails — boilerplate criteria, composed live | **2 → 3** |
+| ✅ | 16 | Shared rubric tails — boilerplate criteria, composed live | **2 → 3** |
 | | 17 | Collection-kind capabilities — the task/item builder split | — |
 | | 18 | Markdown toolbar | — |
 | | 19 | Clone a course, and delete from the home list | — |
@@ -25,9 +25,9 @@ but only because the one-line summary happened to be right.
 | | 22 | Session journal — undo, redo, the staging area | — |
 | | 23 | Command palette | — |
 
-`SCHEMA_VERSION` bumps **once more, at stage 16**, and nowhere else. The contrast between
+`SCHEMA_VERSION` reached **3 at stage 16** and does not move again. The contrast between
 stage 16 (arithmetic changes, bump) and stage 17 (chrome changes, no bump) is the clearest
-illustration of that rule in the repo's history and belongs in both commit messages.
+illustration of that rule in the repo's history and belongs in stage 17's commit message.
 
 Two orderings are deliberate and worth not undoing:
 
@@ -85,68 +85,28 @@ ones, two lines below a comment warning about that exact hazard, and every test 
 passed. It was caught by opening the imported sample and reading a wrong total off the screen.
 Stage 16 touches the same three files and can fail the same way.
 
----
+### Stage 16 — Shared rubric tails
 
-## Stage 16 — Shared rubric tails
+`Rubric.appends`, composed by `effectiveCriteria` in `domain/rubrics.ts`. Shipped as planned,
+including the required-context decision — `rubricTotal(rubric, context)` broke fifteen call
+sites at `pnpm check`, which is exactly what an optional parameter would have hidden.
 
-**Delivers** boilerplate criteria that always appear at the end, composed live — edit the tail
-once and every rubric using it updates.
+**The decision the stage rests on, restated because it never stops applying:** a tail is
+scored against ITS OWN levels, which is why every composed criterion carries its `source`.
+The invariants are in the **Rubrics** section of CLAUDE.md, including the one about
+`applyLevels` never being handed inherited criteria.
 
-```ts
-// RubricSchema
-/** Rubrics whose criteria are appended, in order, after this rubric's own. */
-appends: z.array(z.string()).default([])
-```
+Two additions the plan did not name: `hasAppendCycle` (so `validate.ts` can report a loop
+that `effectiveCriteria` merely survives) and `rubricsAppending` (the list badge and the
+delete confirmation). `applyLevels` reports `dropped: { descriptors, points }` unchanged;
+tails are composed at read time and never touch it.
 
-An array because "professionalism tail" plus "citation tail" is one course away, but **the UI
-offers one picker in this stage**. Schema general, surface narrow.
+**`remap.ts` did not break this time.** `appends: rubric.appends.map(ref)` went in with the
+schema change rather than after it, and `remap.test.ts` now builds its fixture with a real
+tail so the array is never empty. Stages 17 and 19 move id-keyed data too.
 
-**A tail scores against its own levels.** New in `domain/rubrics.ts`:
-
-```ts
-export interface EffectiveCriterion { criterion: Criterion; source: Rubric; inherited: boolean }
-export function effectiveCriteria(rubric: Rubric, rubricsById: ReadonlyMap<string, Rubric>): EffectiveCriterion[]
-```
-
-`rubricTotal(rubric)` becomes `rubricTotal(rubric, context)` and reduces
-`criterionMax(e.criterion, e.source.levels)`. This is the decision the whole stage rests on:
-`criterionMax` resolves `levelPoints` through `pointsAt`, which is keyed by **the tail's**
-level ids. Scoring a tail criterion against the *host's* levels finds no entries, silently
-falls back to the host's column points, and renders every descriptor blank. Carrying the
-source rubric with each criterion is the only correct answer — and it has a good side effect:
-a 2-point complete/incomplete tail on a 4-point rubric adds 2, which is what anyone expects.
-
-The grid is therefore no longer rectangular. **Render the tail as its own sub-table** below
-the main grid, with its own header, a link to edit it, and read-only cells. Honest about what
-is happening, and makes "this is shared" visible.
-
-Make the `context` parameter **required**, not optional. Four call sites, each already holding
-one (`points.ts` ×2, `rubrics/[rubricId]/+page.svelte`, `rubrics/+page.svelte`). An optional
-context that silently drops tails is a lie the type system could have prevented.
-
-**`SCHEMA_VERSION` 2 → 3.** A v2 reader ignores `appends` and computes a smaller total. Same
-misread as stage 15, different field.
-
-Also modify: `coverage.ts` (both `criterionMax` call sites iterate `effectiveCriteria`, or an
-outcome aligned only on a tail criterion reads as uncovered); three validate rules
-(`rubric.dangling-append` error, `rubric.append-cycle` error, `rubric.append-empty` info);
-`remap.ts` (`appends: rubric.appends.map(ref)` — **the file that broke last stage**); the
-rubric list shows which rubrics are used as tails and `rubrics.remove` warns with a count;
-`export/markdown.ts` renders inherited criteria with a link to the tail's document
-(`rubricSlugs` already exists in `export/readable.ts`); `domain/sample.ts` gains a
-"Professionalism" tail; `/help#rubrics`.
-
-`effectiveCriteria` needs a `seen: Set<string>` and a depth cap. State in the file that
-`applyLevels`, `withoutLevel` and `descriptorCoverage` operate on `rubric.criteria` and **must
-never** touch inherited ones — those belong to another record.
-
-**Tests.** The one that pins the design: `rubricTotal` of a 4-point host with a 2-point tail is
-host + 2, **not** host + 4. Plus ordering, self-append terminates, an A→B→A cycle terminates,
-a dangling append is skipped rather than thrown on, coverage through a tail criterion, and a
-bundle round-trip with `appends` set.
-
-**Risk.** Somebody will "helpfully" make `applyLevels` operate on effective criteria, which
-would rewrite another rubric's descriptors from a screen that is not editing it.
+**Naming note for later stages:** the composed-criterion type is `EffectiveCriterion
+{ criterion, source, inherited }`, and `source` is what everything scores against.
 
 ---
 

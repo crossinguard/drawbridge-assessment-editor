@@ -3,6 +3,7 @@ import { strToU8, zipSync } from 'fflate';
 import { buildBundleFiles, readBundle, writeBundle } from './bundle';
 import { PATHS, SCHEMA_VERSION, bundleFilename, slugify, uniqueSlugger } from './format';
 import { VaultSnapshotSchema, type VaultSnapshot } from '$lib/domain/schema';
+import { rubricTotal } from '$lib/domain/points';
 import {
   aCollection,
   aCriterion,
@@ -11,6 +12,7 @@ import {
   anOutcome,
   aVault,
   levels,
+  scoringContext,
   worth
 } from '$lib/domain/fixtures';
 
@@ -189,6 +191,33 @@ describe('round trip', () => {
     const group = result.snapshot?.items.find((item) => item.kind === 'group');
     expect(group?.parts).toHaveLength(1);
     expect(group?.parts[0]?.points).toBe(2);
+  });
+
+  it('carries a shared tail, so a restored course still composes its grid', () => {
+    /*
+      A rubric's own file says nothing about the criteria it borrows — they live in
+      another file entirely, joined by `appends`. Lose that one array and the JSON still
+      looks complete: every rubric parses, every criterion is present somewhere, and the
+      restored course is simply worth less than the one that was exported.
+    */
+    const before = aSnapshot();
+    const tailLevels = levels(['Met', 2], ['Not met', 0]);
+    const tail = aRubric({
+      vaultId: before.vault.id,
+      title: 'Professionalism',
+      levels: tailLevels,
+      criteria: [aCriterion('On time', tailLevels)]
+    });
+    const host = { ...before.rubrics[0]!, appends: [tail.id] };
+    const withTail = VaultSnapshotSchema.parse({ ...before, rubrics: [host, tail] });
+
+    const result = readBundle(writeBundle(withTail, META));
+
+    expect(result.problems).toEqual([]);
+    expect(result.snapshot).toEqual(withTail);
+    expect(result.snapshot?.rubrics[0]?.appends).toEqual([tail.id]);
+    // 10 from Clarity's own points, plus 2 from the tail's own best level.
+    expect(rubricTotal(result.snapshot!.rubrics[0]!, scoringContext(...result.snapshot!.rubrics))).toBe(12);
   });
 });
 

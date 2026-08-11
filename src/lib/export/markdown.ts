@@ -1,5 +1,6 @@
 import { inOrder } from '$lib/domain/items';
 import { buildTree, walkTree } from '$lib/domain/outcomes';
+import { effectiveCriteria } from '$lib/domain/rubrics';
 import {
   collectionPoints,
   criterionMax,
@@ -160,7 +161,7 @@ function rubricLine(rubricId: string, context: ReadableContext): string {
 
   const slug = context.rubricSlugs.get(rubricId);
   const title = slug ? `[${linkText(rubric.title)}](../rubrics/${slug}.md)` : rubric.title;
-  return `**Rubric.** ${title} — up to ${round(rubricTotal(rubric))} pt`;
+  return `**Rubric.** ${title} — up to ${round(rubricTotal(rubric, context.scoring))} pt`;
 }
 
 function stimulusLine(stimulusId: string, context: ReadableContext): string {
@@ -387,21 +388,66 @@ function descriptorCell(criterion: Criterion, level: Rubric['levels'][number]): 
   return text === '—' ? `**${round(override)} pt**` : `**${round(override)} pt**<br>${text}`;
 }
 
+/**
+ * One criteria × levels table.
+ *
+ * Takes its levels as an argument rather than reading them off a rubric, because a
+ * composed document draws more than one table and each is scored against the levels of
+ * the rubric that owns its rows.
+ */
+function gridTable(
+  criteria: readonly Criterion[],
+  levels: Rubric['levels'],
+  context: ReadableContext
+): string {
+  const header = ['Criterion', ...levels.map((level) => `${cell(level.name)} (${round(level.points)} pt)`)];
+  const rows = criteria.map((criterion) =>
+    [
+      criterionCell(criterion, levels, context),
+      ...levels.map((level) => descriptorCell(criterion, level))
+    ].join(' | ')
+  );
+
+  return [
+    `| ${header.join(' | ')} |`,
+    `| ${header.map(() => '---').join(' | ')} |`,
+    ...rows.map((row) => `| ${row} |`)
+  ].join('\n');
+}
+
 /** One rubric as a document: `rubrics/<slug>.md`. */
 export function rubricMarkdown(rubric: Rubric, context: ReadableContext): string {
-  const total = round(rubricTotal(rubric));
-  const criteria = [...rubric.criteria].sort((a, b) => a.order - b.order);
+  const total = round(rubricTotal(rubric, context.scoring));
+  const composed = effectiveCriteria(rubric, context.scoring.rubricsById);
+  const criteria = composed.filter((entry) => !entry.inherited).map((entry) => entry.criterion);
   // The explanatory line only appears where it explains something. A rubric on a plain
   // shared scale reads exactly as it always did.
   const overridden = criteria.some((criterion) =>
     rubric.levels.some((level) => criterion.levelPoints[level.id] !== undefined)
   );
 
+  /*
+    Inherited criteria are grouped by the rubric that owns them and drawn as their own
+    tables below, never merged into the one above. They are scored against their own
+    levels, so a merged table would have to put two different sets of points under one
+    set of column headings — and the reader would have no way to tell which row used
+    which. Separate tables make the seam visible, which is also the honest thing to do
+    about a grid that is partly somebody else's.
+  */
+  const tails: { source: Rubric; criteria: Criterion[] }[] = [];
+  for (const entry of composed) {
+    if (!entry.inherited) continue;
+    const existing = tails.find((tail) => tail.source.id === entry.source.id);
+    if (existing) existing.criteria.push(entry.criterion);
+    else tails.push({ source: entry.source, criteria: [entry.criterion] });
+  }
+
   const blocks: string[] = [
     frontmatter([
       ['title', rubric.title],
       ['levels', rubric.levels.length],
       ['criteria', criteria.length],
+      ['inherited', composed.length - criteria.length],
       ['total', total],
       ['course', context.vault.code],
       ['id', rubric.id]
@@ -416,7 +462,7 @@ export function rubricMarkdown(rubric: Rubric, context: ReadableContext): string
   ];
 
   if (criteria.length === 0) {
-    blocks.push('_No criteria yet._');
+    blocks.push('_No criteria of its own._');
   } else if (rubric.levels.length === 0) {
     // A table with no columns is not a table. Say what is actually wrong.
     blocks.push('_This rubric has no levels, so there is no grid to show._');
@@ -424,20 +470,21 @@ export function rubricMarkdown(rubric: Rubric, context: ReadableContext): string
       criteria.map((criterion) => `- ${criterionCell(criterion, [], context)}`).join('\n')
     );
   } else {
-    const header = ['Criterion', ...rubric.levels.map((level) => `${cell(level.name)} (${round(level.points)} pt)`)];
-    const rows = criteria.map((criterion) =>
-      [
-        criterionCell(criterion, rubric.levels, context),
-        ...rubric.levels.map((level) => descriptorCell(criterion, level))
-      ].join(' | ')
-    );
+    blocks.push(gridTable(criteria, rubric.levels, context));
+  }
 
+  for (const tail of tails) {
+    const slug = context.rubricSlugs.get(tail.source.id);
+    const title = oneLine(tail.source.title) || '(untitled rubric)';
+    blocks.push(`## Appended from ${slug ? `[${linkText(tail.source.title)}](./${slug}.md)` : title}`);
     blocks.push(
-      [
-        `| ${header.join(' | ')} |`,
-        `| ${header.map(() => '---').join(' | ')} |`,
-        ...rows.map((row) => `| ${row} |`)
-      ].join('\n')
+      `*Shared. These criteria live in "${title}" and are scored against ITS levels, ` +
+        `shown below — not the ones above. Editing them there changes every rubric that appends it.*`
+    );
+    blocks.push(
+      tail.source.levels.length === 0
+        ? '_That rubric has no levels, so these criteria are worth nothing._'
+        : gridTable(tail.criteria, tail.source.levels, context)
     );
   }
 

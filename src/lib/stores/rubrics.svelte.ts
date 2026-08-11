@@ -36,6 +36,20 @@ class RubricsStore {
     if (index >= 0) this.items[index] = { ...value };
   });
 
+  /**
+   * Every rubric in the vault by id, with the one being edited overlaid.
+   *
+   * The overlay matters: `items` holds what was last written, and a tail's points are
+   * composed live, so between a keystroke and the debounce landing the map would
+   * otherwise hand back a stale copy of the very rubric on screen. Callers pass this
+   * straight to `rubricTotal` and `effectiveCriteria`.
+   */
+  get byId(): Map<string, Rubric> {
+    const map = new Map(this.items.map((rubric) => [rubric.id, rubric]));
+    if (this.open) map.set(this.open.id, this.open);
+    return map;
+  }
+
   async load(vaultId: string): Promise<void> {
     if (this.vaultId === vaultId && this.status === 'ready') return;
 
@@ -196,6 +210,27 @@ class RubricsStore {
     if (!criterion) return;
     if (points === undefined) delete criterion.levelPoints[levelId];
     else criterion.levelPoints[levelId] = points;
+    this.queueSave();
+  }
+
+  // -------------------------------------------------------------------------
+  // Shared tails
+  //
+  // Appending is a reference, not a copy: the criteria stay in the other rubric
+  // and are composed at read time, so editing the tail updates every rubric
+  // using it. Nothing here reaches into the appended record.
+  // -------------------------------------------------------------------------
+
+  appendRubric(rubricId: string): void {
+    if (!this.open || rubricId === this.open.id) return;
+    if (this.open.appends.includes(rubricId)) return;
+    this.open.appends = [...this.open.appends, rubricId];
+    this.queueSave();
+  }
+
+  removeAppend(rubricId: string): void {
+    if (!this.open) return;
+    this.open.appends = this.open.appends.filter((id) => id !== rubricId);
     this.queueSave();
   }
 

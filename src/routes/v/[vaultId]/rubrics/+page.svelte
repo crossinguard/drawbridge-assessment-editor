@@ -2,7 +2,12 @@
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { rubricTotal } from '$lib/domain/points';
-  import { descriptorCoverage, levelsFromSet } from '$lib/domain/rubrics';
+  import {
+    descriptorCoverage,
+    effectiveCriteria,
+    levelsFromSet,
+    rubricsAppending
+  } from '$lib/domain/rubrics';
   import { activeVault } from '$lib/stores/vault.svelte';
   import { rubrics } from '$lib/stores/rubrics.svelte';
   import { count } from '$lib/text';
@@ -12,6 +17,7 @@
 
   const vaultId = $derived(page.params.vaultId ?? '');
   const vault = $derived(activeVault.draft);
+  const rubricsById = $derived(rubrics.byId);
 
   $effect(() => {
     void rubrics.load(vaultId);
@@ -63,6 +69,9 @@
     <ul class="flex flex-col gap-2">
       {#each rubrics.items as rubric (rubric.id)}
         {@const coverage = descriptorCoverage(rubric)}
+        {@const inherited =
+          effectiveCriteria(rubric, rubricsById).filter((entry) => entry.inherited).length}
+        {@const usedAsTail = rubricsAppending(rubric.id, rubrics.items).length}
         <li>
           <a
             href="/v/{vaultId}/rubrics/{rubric.id}"
@@ -74,13 +83,24 @@
             <span class="min-w-0">
               <span class="block truncate text-sm font-medium">{rubric.title || 'Untitled'}</span>
               <span class="block truncate text-xs text-text-muted">
-                {count(rubric.criteria.length, 'criterion', 'criteria')} ·
+                {count(rubric.criteria.length, 'criterion', 'criteria')}
+                {#if inherited > 0}+ {inherited} inherited{/if} ·
                 {count(rubric.levels.length, 'level')} ·
-                worth up to {rubricTotal(rubric)} pt
+                worth up to {rubricTotal(rubric, { rubricsById })} pt
                 {#if coverage.total > 0 && coverage.written < coverage.total}
                   · {coverage.written} of {coverage.total} cells written
                 {/if}
               </span>
+              <!--
+                Which rubrics lean on this one. Editing it changes all of them, and
+                deleting it shortens all of them, so it belongs on the list rather than
+                only in the confirmation that comes too late to reconsider.
+              -->
+              {#if usedAsTail > 0}
+                <span class="block truncate text-xs text-text-muted">
+                  Appended as a tail by {count(usedAsTail, 'rubric')}
+                </span>
+              {/if}
             </span>
             <span aria-hidden="true" class="text-text-muted">→</span>
           </a>

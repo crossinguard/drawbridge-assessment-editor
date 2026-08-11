@@ -203,7 +203,37 @@ export function sampleSnapshot(): VaultSnapshot {
     )
   ];
 
-  const rubrics = [participation, report];
+  /*
+    A shared tail. Deliberately on a SHORTER scale than the rubric that appends it:
+    2 points against the report's 6, so the composed total is 16 + 2 = 18 and not
+    16 + 6. That is the whole design of the feature in one number, and a demo where
+    both scales matched would show nothing.
+  */
+  const tailScale = levels(['Met', 2], ['Not met', 0]);
+  const professionalism = newRubric({
+    vaultId: vault.id,
+    title: 'Professionalism',
+    description:
+      'A shared tail. Appended to other rubrics rather than copied into them, so ' +
+      'editing it here updates every rubric that uses it.',
+    levels: tailScale
+  });
+  professionalism.criteria = [
+    criterion('Submitted on time, in the format asked for', tailScale, [
+      'On time and in the requested format.',
+      'Late, or in a format that had to be converted.'
+    ]),
+    criterion(
+      'Sources credited',
+      tailScale,
+      ['Every borrowed figure and quotation is credited.', 'Uncredited material.'],
+      { order: 1 }
+    )
+  ];
+
+  report.appends = [professionalism.id];
+
+  const rubrics = [participation, report, professionalism];
 
   // ---------------------------------------------------------------------
   // A quiz: the four selected-response kinds

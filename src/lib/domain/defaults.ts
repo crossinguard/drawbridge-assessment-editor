@@ -198,6 +198,7 @@ export function newRubric(input: {
     title: input.title,
     ...(input.description === undefined ? {} : { description: input.description }),
     levels: input.levels ?? [],
-    criteria: []
+    criteria: [],
+    appends: []
   };
 }

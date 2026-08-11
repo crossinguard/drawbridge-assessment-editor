@@ -1,3 +1,4 @@
+import { effectiveCriteria } from './rubrics';
 import type { Collection, Criterion, Item, Level, Rubric } from './schema';
 
 /*
@@ -76,7 +77,17 @@ export function criterionMax(criterion: Criterion, levels: Rubric['levels']): nu
 }
 
 /**
- * A rubric total is the sum of its criteria maxima.
+ * A rubric total is the sum of its criteria maxima, INCLUDING those it inherits from
+ * the tails it appends.
+ *
+ * Each criterion is scored against its own rubric's levels — `e.source.levels`, never
+ * `rubric.levels`. That is not a detail: `criterionMax` resolves `levelPoints` through
+ * `pointsAt`, which is keyed by level id, so scoring a tail criterion against the host's
+ * levels misses every lookup and silently substitutes the host's column points.
+ *
+ * `context` is REQUIRED rather than optional. Every call site already holds one, and an
+ * optional context would make "total, minus any tails, if the caller forgot" a thing the
+ * type system could have prevented and did not.
  *
  * `Criterion.weight` is deliberately NOT applied here, and now never will be: per-level
  * overrides say the same thing outright and in the unit the reader already understands,
@@ -84,9 +95,9 @@ export function criterionMax(criterion: Criterion, levels: Rubric['levels']): nu
  * for the two to disagree. Weight is carried as metadata; `validate.ts` raises an
  * info-level note when it is set so the gap is visible rather than silent.
  */
-export function rubricTotal(rubric: Rubric): number {
-  return rubric.criteria.reduce(
-    (total, criterion) => total + criterionMax(criterion, rubric.levels),
+export function rubricTotal(rubric: Rubric, context: ScoringContext): number {
+  return effectiveCriteria(rubric, context.rubricsById).reduce(
+    (total, entry) => total + criterionMax(entry.criterion, entry.source.levels),
     0
   );
 }
@@ -114,7 +125,7 @@ export function itemPoints(item: Item, context: ScoringContext): PointsResult {
     const rubric = context.rubricsById.get(item.rubricId);
     // A dangling rubricId scores zero rather than throwing; validate.ts reports it.
     return {
-      points: rubric ? rubricTotal(rubric) : 0,
+      points: rubric ? rubricTotal(rubric, context) : 0,
       source: 'rubric',
       isMaximum: true
     };
@@ -154,7 +165,7 @@ export function collectionPoints(
   if (collection.rubricId !== undefined) {
     const rubric = context.rubricsById.get(collection.rubricId);
     return {
-      points: rubric ? rubricTotal(rubric) : 0,
+      points: rubric ? rubricTotal(rubric, context) : 0,
       source: 'rubric',
       isMaximum: true
     };
