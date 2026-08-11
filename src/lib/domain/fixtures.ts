@@ -68,8 +68,19 @@ export function aCriterion(
     descriptors: Object.fromEntries(
       levelList.map((level) => [level.id, `${title} at ${level.name}`])
     ),
+    levelPoints: {},
     ...overrides
   };
+}
+
+/** Points overrides for a criterion, positionally against a level list. */
+export function worth(levelList: readonly Level[], ...points: number[]): Record<string, number> {
+  return Object.fromEntries(
+    levelList.flatMap((level, index) => {
+      const value = points[index];
+      return value === undefined ? [] : [[level.id, value] as const];
+    })
+  );
 }
 
 export function aRubric(overrides: Partial<Rubric> = {}): Rubric {

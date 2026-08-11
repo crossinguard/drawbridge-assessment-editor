@@ -5,7 +5,8 @@ import {
   aRubric,
   anItem,
   levels,
-  scoringContext
+  scoringContext,
+  worth
 } from './fixtures';
 import {
   collectionPoints,
@@ -13,6 +14,7 @@ import {
   describePoints,
   flattenItems,
   itemPoints,
+  pointsAt,
   rubricTotal
 } from './points';
 
@@ -49,6 +51,68 @@ describe('rubric scoring', () => {
   it('scores a rubric with no levels at zero rather than failing', () => {
     const rubric = aRubric({ levels: [], criteria: [aCriterion('Clarity', [])] });
     expect(rubricTotal(rubric)).toBe(0);
+  });
+
+  it("lets a criterion set its own points, so one can matter more than another", () => {
+    // The whole of stage 15: Thesis runs 10/7/4/0 on the same grid where Mechanics
+    // still runs 4/3/2/1.
+    const thesis = {
+      ...aCriterion('Thesis', fourPoint),
+      levelPoints: worth(fourPoint, 10, 7, 4, 0)
+    };
+    expect(criterionMax(thesis, fourPoint)).toBe(10);
+
+    const rubric = aRubric({
+      levels: fourPoint,
+      criteria: [thesis, aCriterion('Mechanics', fourPoint)]
+    });
+    expect(rubricTotal(rubric)).toBe(14);
+  });
+
+  it('falls back to the column for a level the criterion does not override', () => {
+    // Sparse on purpose: overriding the top of a scale should not force the author to
+    // restate every level below it.
+    const partial = { ...aCriterion('Thesis', fourPoint), levelPoints: worth(fourPoint, 10) };
+
+    expect(pointsAt(partial, fourPoint[0]!)).toBe(10);
+    expect(pointsAt(partial, fourPoint[1]!)).toBe(3);
+    expect(criterionMax(partial, fourPoint)).toBe(10);
+  });
+
+  it('treats an override of 0 as a real value, not as "not set"', () => {
+    /*
+      The distinction the editor depends on. Clearing the field means "worth what the
+      column says"; typing 0 means "worth nothing here", which a "Not evident" column
+      legitimately wants. Collapsing them would silently re-inherit.
+    */
+    const scale = levels(['Yes', 5], ['No', 2]);
+    const zeroed = { ...aCriterion('Clarity', scale), levelPoints: worth(scale, 0, 0) };
+
+    expect(pointsAt(zeroed, scale[0]!)).toBe(0);
+    expect(criterionMax(zeroed, scale)).toBe(0);
+    expect(rubricTotal(aRubric({ levels: scale, criteria: [zeroed] }))).toBe(0);
+  });
+
+  it('takes the best override even when the overrides do not descend', () => {
+    // Same tolerance as a muddled level order: the maximum is the honest answer to
+    // "what is the best this can score", however the row was typed.
+    const muddled = { ...aCriterion('Thesis', fourPoint), levelPoints: worth(fourPoint, 2, 9) };
+    expect(criterionMax(muddled, fourPoint)).toBe(9);
+  });
+
+  it('reaches an item and its collection through the rubric total', () => {
+    // The reason an older reader misreads a stage-15 bundle: the override does not stop
+    // at the rubric, it lands on the exam.
+    const thesis = {
+      ...aCriterion('Thesis', fourPoint),
+      levelPoints: worth(fourPoint, 10, 7, 4, 0)
+    };
+    const rubric = aRubric({ levels: fourPoint, criteria: [thesis] });
+    const context = scoringContext(rubric);
+    const essay = anItem('essay', { rubricId: rubric.id });
+
+    expect(itemPoints(essay, context)).toEqual({ points: 10, source: 'rubric', isMaximum: true });
+    expect(collectionPoints(aCollection(), [essay], context).points).toBe(10);
   });
 });
 

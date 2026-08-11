@@ -127,10 +127,23 @@ export function remapSnapshotIds(
           ...criterion,
           id: ref(criterion.id),
           outcomeIds: criterion.outcomeIds.map(ref),
-          // Descriptors are keyed BY LEVEL ID. Remapping the levels without remapping
-          // these keys would silently blank every descriptor in the grid.
+          /*
+            Both of these are keyed BY LEVEL ID, and both have to be remapped with the
+            levels or they are orphaned: the descriptors blank the grid, and the points
+            revert every criterion to its column heading — quietly, and with the rubric
+            total, the items it scores and their collection totals all coming out lower.
+
+            The second one shipped broken for exactly as long as it took to open the
+            imported sample course and read the total off the rubric list.
+          */
           descriptors: Object.fromEntries(
             Object.entries(criterion.descriptors).map(([levelId, text]) => [ref(levelId), text])
+          ),
+          levelPoints: Object.fromEntries(
+            Object.entries(criterion.levelPoints).map(([levelId, points]) => [
+              ref(levelId),
+              points
+            ])
           )
         }))
       }))

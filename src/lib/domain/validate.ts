@@ -200,6 +200,8 @@ export function validateVault(input: ValidationInput): Issue[] {
       );
     }
 
+    const levelIds = new Set(rubric.levels.map((level) => level.id));
+
     for (const criterion of rubric.criteria) {
       const missing = rubric.levels.filter(
         (level) => (criterion.descriptors[level.id] ?? '').trim() === ''
@@ -232,8 +234,31 @@ export function validateVault(input: ValidationInput): Issue[] {
         }
       }
 
-      // Weight is stored but not applied to totals — see rubricTotal in points.ts.
-      // Saying so is the honest alternative to silently ignoring the field.
+      /*
+        Points overrides keyed to a level this rubric no longer has. Every level
+        operation in the app prunes these, so one can only arrive by import or by
+        hand-editing a bundle — and unlike a stray descriptor, which is merely invisible
+        text, this is arithmetic that looks present and does not apply. Someone
+        wondering why a total is not what their file says needs to be told.
+      */
+      const orphaned = Object.keys(criterion.levelPoints).filter((id) => !levelIds.has(id));
+      if (orphaned.length > 0) {
+        issues.push(
+          issue(
+            'rubric.orphan-level-points',
+            'info',
+            'rubric',
+            `${rubric.id}:${criterion.id}`,
+            orphaned.length === 1
+              ? `"${criterion.title}" sets points for a level this rubric no longer has, so they are ignored.`
+              : `"${criterion.title}" sets points for ${orphaned.length} levels this rubric no longer has, so they are ignored.`
+          )
+        );
+      }
+
+      // Weight is stored but never applied to totals — see rubricTotal in points.ts.
+      // Saying so, and naming what to use instead, is the honest alternative to
+      // silently ignoring the field.
       if (criterion.weight !== undefined) {
         issues.push(
           issue(
@@ -241,7 +266,7 @@ export function validateVault(input: ValidationInput): Issue[] {
             'info',
             'rubric',
             `${rubric.id}:${criterion.id}`,
-            `"${criterion.title}" has a weight, which is recorded but not applied to the rubric total.`
+            `"${criterion.title}" has a weight, which is recorded but not applied to the rubric total. Set the criterion's own points per level instead.`
           )
         );
       }

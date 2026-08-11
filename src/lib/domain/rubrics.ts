@@ -8,6 +8,11 @@ import type { Criterion, Level, LevelSet, Rubric } from './schema';
   fact makes changing a rubric's levels the most destructive thing in the app: get it
   wrong and a grid someone spent an afternoon writing comes back blank, with no error
   and nothing to undo. Every function below is about not doing that.
+
+  `Criterion.levelPoints` is keyed the same way and so carries the same hazard, with a
+  worse failure mode: a lost descriptor is visibly missing, whereas a lost points
+  override just makes the total quietly smaller. Every function here handles the two
+  together, and any future one has to as well.
 */
 
 export function newLevel(name = '', points = 0): Level {
@@ -15,7 +20,7 @@ export function newLevel(name = '', points = 0): Level {
 }
 
 export function newCriterion(order: number): Criterion {
-  return { id: newId(), title: '', order, outcomeIds: [], descriptors: {} };
+  return { id: newId(), title: '', order, outcomeIds: [], descriptors: {}, levelPoints: {} };
 }
 
 /** A level set's levels, copied with fresh ids so the rubric owns them outright. */
@@ -23,8 +28,16 @@ export function levelsFromSet(levelSet: LevelSet, generate: () => string = newId
   return levelSet.levels.map((level) => ({ ...level, id: generate() }));
 }
 
+/** What a level change would discard. Descriptors and overrides are counted apart
+ *  because they read differently in a warning: one is writing, the other is a total. */
+export interface Dropped {
+  descriptors: number;
+  points: number;
+}
+
 /**
- * Replaces a rubric's levels, carrying descriptors across BY POSITION.
+ * Replaces a rubric's levels, carrying descriptors and points overrides across BY
+ * POSITION.
  *
  * Positional rather than by id, because the incoming levels are new objects with new
  * ids — matching on id would find nothing and blank the whole grid. Position is the
@@ -32,39 +45,51 @@ export function levelsFromSet(levelSet: LevelSet, generate: () => string = newId
  * four-point scale for a differently-named four-point scale should keep the text that
  * was written for "best", "second best" and so on.
  *
- * Descriptors past the end of the new level list are dropped, because there is nowhere
- * for them to go. `droppedDescriptors` reports how many, so the UI can warn BEFORE the
- * user commits rather than apologising afterwards.
+ * A points override travels with its descriptor for the same reason. Carrying the text
+ * and leaving the number behind would keep the grid looking right while changing what
+ * it is worth, which is the worst of the two outcomes.
+ *
+ * Anything past the end of the new level list is dropped, because there is nowhere for
+ * it to go. `dropped` reports how much of each, so the UI can warn BEFORE the user
+ * commits rather than apologising afterwards.
  */
 export function applyLevels(
   rubric: Rubric,
   levels: readonly Level[]
-): { rubric: Rubric; droppedDescriptors: number } {
+): { rubric: Rubric; dropped: Dropped } {
   const oldLevels = rubric.levels;
-  let dropped = 0;
+  const dropped: Dropped = { descriptors: 0, points: 0 };
 
   const criteria = rubric.criteria.map((criterion) => {
     const descriptors: Record<string, string> = {};
+    const levelPoints: Record<string, number> = {};
 
     oldLevels.forEach((oldLevel, index) => {
-      const text = criterion.descriptors[oldLevel.id];
-      if (text === undefined || text === '') return;
-
       const replacement = levels[index];
-      if (replacement) descriptors[replacement.id] = text;
-      else dropped += 1;
+
+      const text = criterion.descriptors[oldLevel.id];
+      if (text !== undefined && text !== '') {
+        if (replacement) descriptors[replacement.id] = text;
+        else dropped.descriptors += 1;
+      }
+
+      const points = criterion.levelPoints[oldLevel.id];
+      if (points !== undefined) {
+        if (replacement) levelPoints[replacement.id] = points;
+        else dropped.points += 1;
+      }
     });
 
-    return { ...criterion, descriptors };
+    return { ...criterion, descriptors, levelPoints };
   });
 
-  return { rubric: { ...rubric, levels: [...levels], criteria }, droppedDescriptors: dropped };
+  return { rubric: { ...rubric, levels: [...levels], criteria }, dropped };
 }
 
 /**
- * Removes a level and every descriptor written for it.
+ * Removes a level, everything written for it and everything it was worth.
  *
- * The descriptors have to go: keyed by an id no level has any more, they are
+ * Both records have to be pruned: keyed by an id no level has any more, they are
  * unreachable but still present, and they would reappear as noise the moment anything
  * iterated the record — or be silently re-adopted if that id ever came back.
  */
@@ -74,8 +99,10 @@ export function withoutLevel(rubric: Rubric, levelId: string): Rubric {
     levels: rubric.levels.filter((level) => level.id !== levelId),
     criteria: rubric.criteria.map((criterion) => {
       const descriptors = { ...criterion.descriptors };
+      const levelPoints = { ...criterion.levelPoints };
       delete descriptors[levelId];
-      return { ...criterion, descriptors };
+      delete levelPoints[levelId];
+      return { ...criterion, descriptors, levelPoints };
     })
   };
 }

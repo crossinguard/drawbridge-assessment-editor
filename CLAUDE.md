@@ -60,7 +60,8 @@ an invalid document here, only a document with open problems.
 
 **A rubric criterion is worth its best level, not the sum of its levels.** Levels are
 alternatives. A multi-part item *is* the sum of its parts. Say so in the UI — write
-"worth up to 4 pt" — so nobody reports it as a bug.
+"worth up to 4 pt" — so nobody reports it as a bug. Which level is best is a per-criterion
+question since stage 15: see `Criterion.levelPoints` below.
 
 **Items belong to exactly one collection.** Ownership, not reference. No shared item pool and
 no reference indirection in v1. "Copy items to…" makes independent copies that then diverge,
@@ -182,6 +183,11 @@ opposite of what a demo needs.
 **It loads through `importVault(_, 'new')`**, so it inherits the id remapping and gives two
 independent courses when loaded twice. It is an ordinary vault the user can edit and delete,
 not a shared demo.
+
+**It shows the features, not just the shapes.** Every item kind appears, and so does a
+criterion carrying its own `levelPoints` — a grid where every row is worth the same looks
+like the only kind there is. `sample.test.ts` pins both, the second by checking the
+override actually moves the total.
 
 **It contains a deliberately unfinished item and one uncovered outcome.** `sample.test.ts`
 pins both halves: no `error`-severity issue anywhere (a demo that opens red teaches the wrong
@@ -346,11 +352,31 @@ destructive operation in the app.** Get it wrong and a grid someone spent an aft
 comes back blank, with no error and nothing to undo. Every level change goes through
 `domain/rubrics.ts` rather than editing arrays in a store or a component.
 
-**`applyLevels` carries descriptors across BY POSITION.** The incoming levels are fresh
-objects with fresh ids, so matching on id finds nothing and blanks the grid. Position is the
-only correspondence available and the right one: swapping a four-point scale for a
-differently-named four-point scale should keep what was written for "best", "second best"
-and so on. It reports `droppedDescriptors` so the UI can warn *before* committing.
+**`Criterion.levelPoints` is keyed the same way, and carries the same hazard with a worse
+failure mode.** It is what a criterion scores at each level, overriding the level's own
+`points` — the mechanism that lets Thesis run 10/7/4/0 on the same grid where Mechanics
+runs 4/3/2/1. A lost descriptor is visibly missing; a lost override just makes the total
+smaller, and that total reaches the item scored by the rubric and its collection. Anything
+here that touches levels handles both records or it is wrong.
+
+**Absent means "inherit the column"; `0` means "worth nothing at this level".** Both are
+real and a "Not evident" column wants the second, so the editor `delete`s the key rather
+than writing 0 — the same distinction `points.ts` draws between `undeclared` and
+`explicit` on an item.
+
+**`Criterion.weight` is inert and now always will be.** `levelPoints` says the same thing
+outright and in the unit the reader already understands, so applying a multiplier on top
+would be a second way to express one idea and a way for the two to disagree.
+`rubric.weight-not-applied` says so and names the replacement.
+
+**`applyLevels` carries descriptors AND points overrides across BY POSITION.** The incoming
+levels are fresh objects with fresh ids, so matching on id finds nothing and blanks the
+grid. Position is the only correspondence available and the right one: swapping a
+four-point scale for a differently-named four-point scale should keep what was written for
+"best", "second best" and so on, and what each was worth. Carrying the text and leaving the
+numbers is the worst of the outcomes — the grid still looks right. It reports
+`dropped: { descriptors, points }`, counted apart because they read differently in a
+warning, so the UI can warn *before* committing.
 
 **Rubrics are shared; items and collections reference them by id.** Editing one changes
 every item pointing at it — intended, but worth remembering before "just tweaking" a level's
@@ -405,7 +431,10 @@ untouched: a leading `=` is left alone, because the usual defence corrupts the d
 `=MEAN(x)` is a plausible thing to find in a stem.
 
 **`SCHEMA_VERSION` bumps only when an older reader would MISREAD a newer bundle.** Adding a
-file, or a field that older code carries through as an unknown key, is not a reason.
+file, or a field that older code carries through as an unknown key, is not a reason. It is
+2, for `Criterion.levelPoints`: version 1 preserves it as an unknown key but scores around
+it, so rubric totals, the items those rubrics score and their collection totals all come
+out lower with nothing to show anything was ignored.
 
 **Last-export time lives in localStorage, not on the vault.** Stored on the record it would
 travel inside the bundle, so restoring a backup would report that you had just exported —
@@ -461,8 +490,9 @@ behind each.
 controls and focus (13), a loadable sample course (14), per-criterion rubric points (15),
 shared rubric tails (16), collection-kind capabilities and the task/item split (17), a
 Markdown toolbar (18), cloning a course (19), moving items between collections (20), a write
-funnel (21), the session journal and undo (22), and a command palette (23). **Stages 13 and
-14 are done.** `SCHEMA_VERSION` bumps at 15 and 16 and nowhere else.
+funnel (21), the session journal and undo (22), and a command palette (23). **Stages 13, 14
+and 15 are done**, taking `SCHEMA_VERSION` to 2. It bumps once more, at 16, and nowhere
+else.
 
 Deliberately not built yet:
 

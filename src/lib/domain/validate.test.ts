@@ -240,6 +240,28 @@ describe('rubric rules', () => {
     });
     expect(ruleIds(issues)).toContain('rubric.weight-not-applied');
   });
+
+  it('reports points set for a level the rubric no longer has', () => {
+    /*
+      Only reachable by import or a hand-edited bundle — every level operation in the
+      app prunes these. Worth saying anyway: unlike a stray descriptor, which is merely
+      invisible text, this is arithmetic that looks present and does not apply, and
+      someone comparing a total against their file needs to be told why.
+    */
+    const stranded = aCriterion('Clarity', fourPoint, { levelPoints: { 'gone-level': 12 } });
+    const issues = check({ rubrics: [aRubric({ levels: fourPoint, criteria: [stranded] })] });
+
+    expect(ruleIds(issues)).toContain('rubric.orphan-level-points');
+  });
+
+  it('says nothing about points that are keyed to levels the rubric has', () => {
+    const weighted = aCriterion('Clarity', fourPoint, {
+      levelPoints: Object.fromEntries(fourPoint.map((level, index) => [level.id, 10 - index]))
+    });
+    const issues = check({ rubrics: [aRubric({ levels: fourPoint, criteria: [weighted] })] });
+
+    expect(ruleIds(issues)).not.toContain('rubric.orphan-level-points');
+  });
 });
 
 describe('points and coverage rules', () => {

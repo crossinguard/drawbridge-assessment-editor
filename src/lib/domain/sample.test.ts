@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { sampleSnapshot } from './sample';
 import { VaultSnapshotSchema } from './schema';
 import { validateVault } from './validate';
-import { flattenItems } from './points';
+import { flattenItems, rubricTotal } from './points';
 
 /*
   What makes a hand-written fixture worth shipping is that these hold. The sample is
@@ -112,6 +112,27 @@ describe('the sample course', () => {
     expect(first.vault.id).not.toBe(second.vault.id);
     const firstIds = new Set(flattenItems(first.items).map((item) => item.id));
     for (const item of flattenItems(second.items)) expect(firstIds.has(item.id)).toBe(false);
+  });
+
+  it('shows a criterion carrying its own points', () => {
+    /*
+      Same argument as showing every item kind: a feature the demo omits is a feature
+      a first-time reader has to discover by accident. This one especially, because a
+      grid where every row is worth the same looks like the only kind there is.
+    */
+    const rubrics = sampleSnapshot().rubrics;
+    const weighted = rubrics.flatMap((rubric) =>
+      rubric.criteria.filter((criterion) =>
+        rubric.levels.some((level) => criterion.levelPoints[level.id] !== undefined)
+      )
+    );
+
+    expect(weighted.length).toBeGreaterThan(0);
+
+    // And it has to actually change the total, or it demonstrates nothing.
+    const shown = rubrics.find((rubric) => rubric.criteria.some((c) => weighted.includes(c)))!;
+    const flat = shown.criteria.map((criterion) => ({ ...criterion, levelPoints: {} }));
+    expect(rubricTotal(shown)).not.toBe(rubricTotal({ ...shown, criteria: flat }));
   });
 
   it('shows every item kind the app has', () => {

@@ -24,8 +24,14 @@ import {
  * Bumped only when a bundle written by this version would be MISREAD by an older one.
  * Adding a file, or adding a field that older code will simply carry through as an
  * unknown key, is not a reason to bump it.
+ *
+ * 2 — `Criterion.levelPoints`. Version 1 preserves it, being an unknown key, but scores
+ *     around it: every criterion reverts to its column heading, so a rubric total, the
+ *     items scored by that rubric and their collection totals all come out lower with
+ *     no sign that anything was ignored. Silently wrong arithmetic is the case this
+ *     number exists for.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const PATHS = {
   readme: 'README.md',

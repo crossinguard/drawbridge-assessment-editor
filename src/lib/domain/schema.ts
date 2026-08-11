@@ -293,7 +293,17 @@ export const CriterionSchema = z.looseObject({
   outcomeIds: z.array(z.string()).default([]),
   weight: z.number().optional(),
   /** Keyed by level id. May be sparse — missing descriptors are a warning, not an error. */
-  descriptors: z.record(z.string(), z.string()).default({})
+  descriptors: z.record(z.string(), z.string()).default({}),
+  /**
+   * What this criterion scores at each level, overriding the points declared on the
+   * level itself. Keyed by level id and sparse in the same way as `descriptors`: a
+   * level with no entry here is worth whatever its column says.
+   *
+   * This is what lets one criterion matter more than another on a shared scale —
+   * Thesis running 10/7/4 while Mechanics runs 4/3/2 — without giving every criterion
+   * its own columns.
+   */
+  levelPoints: z.record(z.string(), z.number()).default({})
 });
 
 /**

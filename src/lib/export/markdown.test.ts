@@ -11,7 +11,8 @@ import {
   anOutcome,
   aVault,
   levels,
-  options
+  options,
+  worth
 } from '$lib/domain/fixtures';
 
 /*
@@ -289,7 +290,14 @@ describe('a rubric as a document', () => {
       levels: four,
       criteria: [
         aCriterion('Clarity', four, { weight: 2 }),
-        { id: newId(), title: 'Evidence | data', order: 1, outcomeIds: [], descriptors: {} }
+        {
+          id: newId(),
+          title: 'Evidence | data',
+          order: 1,
+          outcomeIds: [],
+          descriptors: {},
+          levelPoints: {}
+        }
       ]
     });
   }
@@ -319,6 +327,43 @@ describe('a rubric as a document', () => {
     const text = rubricMarkdown(rubric, contextFor({ rubrics: [rubric] }));
 
     expect(text).toContain('| — | — |');
+  });
+
+  it('states what each criterion is worth, so the total can be added by eye', () => {
+    // With per-criterion points the column headings are only defaults, so the first
+    // column is the only place the arithmetic is checkable without a calculator.
+    const rubric = grid();
+    const text = rubricMarkdown(rubric, contextFor({ rubrics: [rubric] }));
+
+    expect(text).toContain('worth up to 4 pt');
+  });
+
+  it('prints a cell that departs from its column, and says so above the table', () => {
+    const four = levels(['Exemplary', 4], ['Proficient', 3]);
+    const rubric = aRubric({
+      vaultId: vault.id,
+      title: 'Report',
+      levels: four,
+      criteria: [
+        { ...aCriterion('Thesis', four), levelPoints: worth(four, 10, 7) },
+        aCriterion('Mechanics', four)
+      ]
+    });
+    const text = rubricMarkdown(rubric, contextFor({ rubrics: [rubric] }));
+
+    expect(text).toContain('Worth up to 14 pt');
+    expect(text).toContain('**10 pt**<br>Thesis at Exemplary');
+    expect(text).toContain('that criterion is worth what the cell says instead');
+    // The heading still carries the column default, which is what Mechanics uses.
+    expect(text).toContain('| Criterion | Exemplary (4 pt) | Proficient (3 pt) |');
+  });
+
+  it('leaves a rubric on a plain shared scale reading exactly as it did', () => {
+    // The explanatory line earns its place only where it explains something.
+    const rubric = grid();
+    expect(rubricMarkdown(rubric, contextFor({ rubrics: [rubric] }))).not.toContain(
+      'that criterion is worth what the cell says instead'
+    );
   });
 
   it('explains itself rather than printing a table with no columns', () => {

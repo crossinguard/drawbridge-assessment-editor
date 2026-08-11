@@ -45,8 +45,19 @@ function criterion(
     order: 0,
     outcomeIds: [],
     descriptors: Object.fromEntries(scale.map((level, index) => [level.id, descriptors[index] ?? ''])),
+    levelPoints: {},
     ...extra
   };
+}
+
+/** Points overrides against a scale, positionally. Undefined entries inherit the column. */
+function worth(scale: readonly Level[], ...points: number[]): Record<string, number> {
+  return Object.fromEntries(
+    scale.flatMap((level, index) => {
+      const value = points[index];
+      return value === undefined ? [] : [[level.id, value] as const];
+    })
+  );
 }
 
 function item(kind: ItemKind, collectionId: string, extra: Partial<Item> = {}): Item {
@@ -161,7 +172,9 @@ export function sampleSnapshot(): VaultSnapshot {
   const report = newRubric({
     vaultId: vault.id,
     title: 'Written report',
-    description: 'Scores the whole task at once, rather than item by item.',
+    description:
+      'Scores the whole task at once, rather than item by item. Interpretation carries ' +
+      'its own points, so it is worth more than the criterion above it.',
     levels: reportScale
   });
   report.criteria = [
@@ -183,7 +196,10 @@ export function sampleSnapshot(): VaultSnapshot {
         'Reports the result without interpreting it.',
         'No interpretation offered.'
       ],
-      { order: 1, outcomeIds: [eo21.id] }
+      // Worth more than the column heading says: this is the point of the report, and
+      // it is here so a first-time reader meets a criterion carrying its own points
+      // rather than discovering the feature by accident.
+      { order: 1, outcomeIds: [eo21.id], levelPoints: worth(reportScale, 10, 5, 0) }
     )
   ];
 

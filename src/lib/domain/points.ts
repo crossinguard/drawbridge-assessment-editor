@@ -1,4 +1,4 @@
-import type { Collection, Criterion, Item, Rubric } from './schema';
+import type { Collection, Criterion, Item, Level, Rubric } from './schema';
 
 /*
   Points arithmetic.
@@ -49,25 +49,39 @@ export function pointsOf(result: PointsResult): number {
 // ---------------------------------------------------------------------------
 
 /**
+ * What one criterion scores at one level.
+ *
+ * The level's own `points` is the column default; `criterion.levelPoints` overrides it
+ * per cell, which is how Thesis runs 10/7/4 on the same grid where Mechanics runs
+ * 4/3/2. Absent means "inherit the column", never zero — an override of 0 is a real
+ * value a level list can legitimately hold, so the two have to stay distinguishable.
+ */
+export function pointsAt(criterion: Criterion, level: Level): number {
+  const override = criterion.levelPoints[level.id];
+  return override === undefined ? level.points : override;
+}
+
+/**
  * What a single criterion is worth: its best level.
  *
  * Computed as the maximum rather than by reading `levels[0]`, even though levels are
  * ordered best-first by convention. The two agree whenever the convention holds, and
- * when it does not — a user drags a level out of order in the grid editor — the
- * maximum is still the honest answer to "what is the best this can score".
+ * when it does not — a user drags a level out of order in the grid editor, or writes a
+ * set of overrides that do not descend — the maximum is still the honest answer to
+ * "what is the best this can score".
  */
-export function criterionMax(_criterion: Criterion, levels: Rubric['levels']): number {
+export function criterionMax(criterion: Criterion, levels: Rubric['levels']): number {
   if (levels.length === 0) return 0;
-  return levels.reduce((best, level) => Math.max(best, level.points), -Infinity);
+  return levels.reduce((best, level) => Math.max(best, pointsAt(criterion, level)), -Infinity);
 }
 
 /**
  * A rubric total is the sum of its criteria maxima.
  *
- * `Criterion.weight` is deliberately NOT applied here. The brief defines the total as
- * the sum of criteria maxima and says nothing about weighting the arithmetic, and
- * quietly multiplying by a weight would change every existing total the first time
- * someone filled the field in. Weight is carried as metadata; `validate.ts` raises an
+ * `Criterion.weight` is deliberately NOT applied here, and now never will be: per-level
+ * overrides say the same thing outright and in the unit the reader already understands,
+ * so a multiplier layered on top would be a second way to express one idea and a way
+ * for the two to disagree. Weight is carried as metadata; `validate.ts` raises an
  * info-level note when it is set so the gap is visible rather than silent.
  */
 export function rubricTotal(rubric: Rubric): number {

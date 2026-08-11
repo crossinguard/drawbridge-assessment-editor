@@ -381,17 +381,33 @@
           Levels are ordered best-first. Descriptors go in the grid, one cell per criterion ×
           level, and can be left blank — the list screen tells you how many cells are written.
         </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">A criterion can be worth more than the one
+          below it.</strong> The number in a column heading is that level's default. Under
+          each descriptor is a points box for that one cell: leave it empty and the cell is
+          worth what the column says — the box shows that number greyed out, labelled
+          <em>pt (column)</em> — or type a number and the cell is worth that instead, labelled
+          <em>pt (set here)</em>. So Thesis can run 10 / 7 / 4 / 0 on the same grid where
+          Mechanics still runs 4 / 3 / 2 / 1. The line under each criterion's title says what
+          that row is worth, and the total at the top adds those up.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          Clearing that box is not the same as typing <code class="text-text">0</code>. Empty
+          means “worth what the column says”; 0 means “worth nothing at this level”, which is
+          usually what you want in a <em>Not evident</em> column.
+        </p>
         <p
           class="max-w-prose rounded-md border border-border-subtle bg-surface-raised px-3 py-2
                  text-sm text-text-muted"
         >
           <strong class="font-medium text-warning">Changing a rubric's levels is the most
-          destructive thing in the app.</strong> Descriptors belong to the level they were
-          written under, so swapping a four-point scale for a two-point one leaves two columns
-          of writing with nowhere to go. Drawbridge counts them and asks
-          <em>before</em> anything changes, and carries descriptors across by position — so
-          swapping one four-point scale for a differently-named four-point scale keeps what
-          you wrote for “best”, “second best” and so on.
+          destructive thing in the app.</strong> Descriptors and per-cell points both belong to
+          the level they were written under, so swapping a four-point scale for a two-point one
+          leaves two columns of work with nowhere to go. Drawbridge counts both — “nowhere for
+          4 descriptors and 2 points overrides to go” — and asks <em>before</em> anything
+          changes, then carries them across by position, so swapping one four-point scale for a
+          differently-named four-point scale keeps what you wrote for “best”, “second best” and
+          so on, and what each of those was worth.
         </p>
         <p class="max-w-prose text-sm text-text-muted">
           Level sets in Settings are starting points. A rubric always owns its own copy of its

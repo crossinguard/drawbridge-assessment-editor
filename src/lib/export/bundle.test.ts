@@ -10,7 +10,8 @@ import {
   anItem,
   anOutcome,
   aVault,
-  levels
+  levels,
+  worth
 } from '$lib/domain/fixtures';
 
 const META = { appVersion: '0.1.0', exportedAt: '2026-08-09T12:00:00.000Z' };
@@ -25,7 +26,14 @@ function aSnapshot(): VaultSnapshot {
     vaultId: vault.id,
     title: 'Discussion participation',
     levels: fourPoint,
-    criteria: [aCriterion('Clarity', fourPoint, { outcomeIds: [child.id] })]
+    criteria: [
+      // Carries its own points, so the round-trip below actually exercises them. A
+      // field absent from this fixture is a field the backup story does not cover.
+      aCriterion('Clarity', fourPoint, {
+        outcomeIds: [child.id],
+        levelPoints: worth(fourPoint, 10, 7)
+      })
+    ]
   });
 
   const collection = aCollection({ vaultId: vault.id, kind: 'exam', title: 'Unit 1 Test' });

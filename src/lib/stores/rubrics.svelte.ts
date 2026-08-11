@@ -1,7 +1,13 @@
 import { repository } from '$lib/repo';
 import { newRubric } from '$lib/domain/defaults';
 import { nowIso } from '$lib/domain/ids';
-import { applyLevels, newCriterion, newLevel, withoutLevel } from '$lib/domain/rubrics';
+import {
+  applyLevels,
+  newCriterion,
+  newLevel,
+  withoutLevel,
+  type Dropped
+} from '$lib/domain/rubrics';
 import type { Level, Rubric } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
 import { plain } from './plain.svelte';
@@ -94,19 +100,19 @@ class RubricsStore {
   // to blank the grid.
   // -------------------------------------------------------------------------
 
-  /** Swaps in a new set of levels. Returns how many descriptors had nowhere to go. */
-  replaceLevels(levels: readonly Level[]): number {
-    if (!this.open) return 0;
-    const { rubric, droppedDescriptors } = applyLevels(plain(this.open), levels);
+  /** Swaps in a new set of levels. Returns what had nowhere to go. */
+  replaceLevels(levels: readonly Level[]): Dropped {
+    if (!this.open) return { descriptors: 0, points: 0 };
+    const { rubric, dropped } = applyLevels(plain(this.open), levels);
     this.open = rubric;
     this.queueSave();
-    return droppedDescriptors;
+    return dropped;
   }
 
-  /** How many descriptors a proposed level list would discard, without applying it. */
-  wouldDrop(levels: readonly Level[]): number {
-    if (!this.open) return 0;
-    return applyLevels(plain(this.open), levels).droppedDescriptors;
+  /** What a proposed level list would discard, without applying it. */
+  wouldDrop(levels: readonly Level[]): Dropped {
+    if (!this.open) return { descriptors: 0, points: 0 };
+    return applyLevels(plain(this.open), levels).dropped;
   }
 
   addLevel(): void {
@@ -170,6 +176,26 @@ class RubricsStore {
     const criterion = this.open.criteria.find((entry) => entry.id === criterionId);
     if (!criterion) return;
     criterion.descriptors[levelId] = text;
+    this.queueSave();
+  }
+
+  /**
+   * One cell's points. `undefined` DELETES the key rather than writing 0.
+   *
+   * Clearing the field means "worth whatever the column says"; 0 means "worth nothing
+   * at this level", which a "Not evident" column legitimately wants. Writing 0 for a
+   * cleared field would collapse the two and quietly pin the cell to zero — the same
+   * distinction `points.ts` draws between `undeclared` and `explicit` on an item.
+   *
+   * Edits in place, like `setDescriptor`: replacing `open` wholesale on a keystroke
+   * would rebuild every textarea in the grid and take the cursor with it.
+   */
+  setLevelPoints(criterionId: string, levelId: string, points: number | undefined): void {
+    if (!this.open) return;
+    const criterion = this.open.criteria.find((entry) => entry.id === criterionId);
+    if (!criterion) return;
+    if (points === undefined) delete criterion.levelPoints[levelId];
+    else criterion.levelPoints[levelId] = points;
     this.queueSave();
   }
 

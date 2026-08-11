@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { remapSnapshotIds } from './remap';
 import { VaultSnapshotSchema, type VaultSnapshot } from './schema';
-import { aCollection, aCriterion, aRubric, anItem, anOutcome, aVault, levels } from './fixtures';
+import { rubricTotal } from './points';
+import {
+  aCollection,
+  aCriterion,
+  aRubric,
+  anItem,
+  anOutcome,
+  aVault,
+  levels,
+  worth
+} from './fixtures';
 
 /** Deterministic ids, so failures name the position rather than a random uuid. */
 function counter(prefix = 'new') {
@@ -18,7 +28,12 @@ function aSnapshot(): VaultSnapshot {
   const rubric = aRubric({
     vaultId: vault.id,
     levels: fourPoint,
-    criteria: [aCriterion('Clarity', fourPoint, { outcomeIds: [child.id] })]
+    criteria: [
+      aCriterion('Clarity', fourPoint, {
+        outcomeIds: [child.id],
+        levelPoints: worth(fourPoint, 10, 7)
+      })
+    ]
   });
 
   const collection = aCollection({ vaultId: vault.id });
@@ -108,6 +123,28 @@ describe('remapSnapshotIds', () => {
     );
   });
 
+  it('remaps points overrides along with the level ids they point at', () => {
+    /*
+      The same trap as descriptors, one field along, and worse: an orphaned descriptor
+      leaves a visibly empty cell, whereas an orphaned override just reverts the
+      criterion to its column heading and takes the rubric total, the items it scores
+      and their collection totals down with it.
+
+      This shipped broken. Every test in this file passed; opening the imported sample
+      course and reading 12 pt where the module says 16 is what caught it.
+    */
+    const original = aSnapshot();
+    const { snapshot } = remapSnapshotIds(original, counter());
+    const rubric = snapshot.rubrics[0];
+    const criterion = rubric?.criteria[0];
+
+    expect(Object.keys(criterion?.levelPoints ?? {})).toEqual(
+      rubric?.levels.map((level) => level.id)
+    );
+    expect(rubricTotal(rubric!)).toBe(rubricTotal(original.rubrics[0]!));
+    expect(rubricTotal(rubric!)).toBe(10);
+  });
+
   it('leaves a reference to something outside the bundle alone', () => {
     // Minting a fresh id here would turn a reported dangling reference into a silent
     // one that points at nothing and can never be traced back.
@@ -134,7 +171,8 @@ describe('remapSnapshotIds', () => {
         JSON.stringify(s, (key, value) =>
           /^(id|vaultId|collectionId|sectionId|parentId|rubricId|stimulusId)$/.test(key) ||
           key === 'outcomeIds' ||
-          key === 'descriptors'
+          key === 'descriptors' ||
+          key === 'levelPoints'
             ? undefined
             : value
         )

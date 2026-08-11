@@ -2,6 +2,7 @@ import { inOrder } from '$lib/domain/items';
 import { buildTree, walkTree } from '$lib/domain/outcomes';
 import {
   collectionPoints,
+  criterionMax,
   describePoints,
   itemPoints,
   rubricTotal,
@@ -354,19 +355,47 @@ export function outcomesMarkdown(
 // Rubrics
 // ---------------------------------------------------------------------------
 
-function criterionCell(criterion: Criterion, context: ReadableContext): string {
+function criterionCell(
+  criterion: Criterion,
+  levels: Rubric['levels'],
+  context: ReadableContext
+): string {
   const bits = [`**${cell(criterion.title) === '—' ? '(untitled)' : cell(criterion.title)}**`];
   if (criterion.description) bits.push(cell(criterion.description));
+  // Its own maximum, spelled out per row. With per-criterion points the column
+  // headings are only defaults, so this column is what makes the rubric's total
+  // addable by eye — which is the one thing a reader checks a rubric document for.
+  if (levels.length > 0) bits.push(`worth up to ${round(criterionMax(criterion, levels))} pt`);
   if (criterion.weight !== undefined) bits.push(`weight ${round(criterion.weight)}`);
   const codes = criterion.outcomeIds.map((id) => code(`@${outcomeCode(context, id)}`));
   if (codes.length > 0) bits.push(codes.join(' '));
   return bits.join('<br>');
 }
 
+/**
+ * One grid cell: the descriptor, prefixed with its points where the criterion overrides
+ * the column heading.
+ *
+ * Only where it differs, deliberately. Repeating the heading's number in every cell
+ * would triple the ink in the widest part of the table to say nothing, whereas a number
+ * that appears exactly where the row departs from its column is self-explaining.
+ */
+function descriptorCell(criterion: Criterion, level: Rubric['levels'][number]): string {
+  const override = criterion.levelPoints[level.id];
+  const text = cell(criterion.descriptors[level.id] ?? '');
+  if (override === undefined) return text;
+  return text === '—' ? `**${round(override)} pt**` : `**${round(override)} pt**<br>${text}`;
+}
+
 /** One rubric as a document: `rubrics/<slug>.md`. */
 export function rubricMarkdown(rubric: Rubric, context: ReadableContext): string {
   const total = round(rubricTotal(rubric));
   const criteria = [...rubric.criteria].sort((a, b) => a.order - b.order);
+  // The explanatory line only appears where it explains something. A rubric on a plain
+  // shared scale reads exactly as it always did.
+  const overridden = criteria.some((criterion) =>
+    rubric.levels.some((level) => criterion.levelPoints[level.id] !== undefined)
+  );
 
   const blocks: string[] = [
     frontmatter([
@@ -379,6 +408,9 @@ export function rubricMarkdown(rubric: Rubric, context: ReadableContext): string
     ]),
     `# ${oneLine(rubric.title) || '(untitled rubric)'}`,
     `*Worth up to ${total} pt — the sum of each criterion's best level. The levels are alternatives, not steps to be added up.*`,
+    overridden
+      ? '*A column heading gives the points for that level by default. Where a cell shows its own points, that criterion is worth what the cell says instead.*'
+      : '',
     (rubric.description ?? '').trim(),
     ...fieldPairs(context, rubric.fields).map((pair) => `*${pair}*`)
   ];
@@ -388,13 +420,15 @@ export function rubricMarkdown(rubric: Rubric, context: ReadableContext): string
   } else if (rubric.levels.length === 0) {
     // A table with no columns is not a table. Say what is actually wrong.
     blocks.push('_This rubric has no levels, so there is no grid to show._');
-    blocks.push(criteria.map((criterion) => `- ${criterionCell(criterion, context)}`).join('\n'));
+    blocks.push(
+      criteria.map((criterion) => `- ${criterionCell(criterion, [], context)}`).join('\n')
+    );
   } else {
     const header = ['Criterion', ...rubric.levels.map((level) => `${cell(level.name)} (${round(level.points)} pt)`)];
     const rows = criteria.map((criterion) =>
       [
-        criterionCell(criterion, context),
-        ...rubric.levels.map((level) => cell(criterion.descriptors[level.id] ?? ''))
+        criterionCell(criterion, rubric.levels, context),
+        ...rubric.levels.map((level) => descriptorCell(criterion, level))
       ].join(' | ')
     );
 

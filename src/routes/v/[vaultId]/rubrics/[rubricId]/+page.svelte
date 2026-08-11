@@ -49,13 +49,26 @@
     const dropped = rubrics.wouldDrop(levels);
 
     /*
-      Asked BEFORE anything changes, not reported afterwards. Descriptors are keyed by
-      level id, so shrinking a scale genuinely discards writing — and this is the one
-      action in the app that can lose a lot of it at once.
+      Asked BEFORE anything changes, not reported afterwards. Descriptors and points
+      overrides are both keyed by level id, so shrinking a scale genuinely discards
+      work — and this is the one action in the app that can lose a lot of it at once.
+
+      The two are named separately because they read differently: losing a descriptor
+      is losing writing you can see is gone, whereas losing an override just makes the
+      total quietly smaller.
     */
-    if (dropped > 0) {
+    const losses = [
+      dropped.descriptors > 0 ? count(dropped.descriptors, 'descriptor') : '',
+      dropped.points === 0
+        ? ''
+        : dropped.points === 1
+          ? 'a points override'
+          : `${dropped.points} points overrides`
+    ].filter((part) => part !== '');
+
+    if (losses.length > 0) {
       const ok = confirm(
-        `Switching to "${set.name}" leaves nowhere for ${count(dropped, 'descriptor')} to go, ` +
+        `Switching to "${set.name}" leaves nowhere for ${losses.join(' and ')} to go, ` +
           `and they will be discarded. Continue?`
       );
       if (!ok) return;
@@ -128,6 +141,8 @@
         <span>
           {count(orderedCriteria.length, 'criterion', 'criteria')}, each worth its best level
         </span>
+        <span>·</span>
+        <span>A column's points are its default; any cell can set its own</span>
         {#if coverage.total > 0}
           <span>·</span>
           <span class={coverage.written < coverage.total ? 'text-warning' : ''}>
@@ -183,7 +198,7 @@
                              text-xs focus:border-border-strong focus:outline-2 focus:outline-accent"
                       bind:value={level.points}
                       oninput={() => rubrics.queueSave()}
-                      aria-label="Level points"
+                      aria-label="Default points for this level"
                     />
                     <span class="text-3xs text-text-muted">pt</span>
                     <IconButton
@@ -284,15 +299,49 @@
 
               {#each rubric.levels as level (level.id)}
                 <td class="border-l border-border-subtle p-2">
-                  <textarea
-                    class={cell}
-                    rows="4"
-                    value={criterion.descriptors[level.id] ?? ''}
-                    oninput={(event) =>
-                      rubrics.setDescriptor(criterion.id, level.id, event.currentTarget.value)}
-                    placeholder="What this looks like"
-                    aria-label="{criterion.title || 'Criterion'} at {level.name || 'level'}"
-                  ></textarea>
+                  <div class="flex flex-col gap-1">
+                    <textarea
+                      class={cell}
+                      rows="4"
+                      value={criterion.descriptors[level.id] ?? ''}
+                      oninput={(event) =>
+                        rubrics.setDescriptor(criterion.id, level.id, event.currentTarget.value)}
+                      placeholder="What this looks like"
+                      aria-label="{criterion.title || 'Criterion'} at {level.name || 'level'}"
+                    ></textarea>
+
+                    <div class="flex items-center gap-1">
+                      <!--
+                        Empty means "worth what the column says", which is why the
+                        placeholder shows that number rather than 0. Clearing the field
+                        DELETES the override; typing 0 pins the cell to nothing. Those
+                        are different, and a "Not evident" column wants the second.
+                      -->
+                      <input
+                        type="number"
+                        step="any"
+                        class="w-14 rounded border border-border-subtle bg-surface px-1.5 py-0.5
+                               text-xs focus:border-border-strong focus:outline-2
+                               focus:outline-accent"
+                        value={criterion.levelPoints[level.id] ?? ''}
+                        placeholder={String(level.points)}
+                        oninput={(event) => {
+                          const raw = event.currentTarget.value.trim();
+                          const parsed = Number(raw);
+                          rubrics.setLevelPoints(
+                            criterion.id,
+                            level.id,
+                            raw === '' || Number.isNaN(parsed) ? undefined : parsed
+                          );
+                        }}
+                        aria-label="Points for {criterion.title || 'this criterion'} at {level.name ||
+                          'this level'}"
+                      />
+                      <span class="text-3xs text-text-muted">
+                        {criterion.levelPoints[level.id] === undefined ? 'pt (column)' : 'pt (set here)'}
+                      </span>
+                    </div>
+                  </div>
                 </td>
               {/each}
               <td class="border-l border-border-subtle"></td>

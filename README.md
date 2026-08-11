@@ -56,14 +56,17 @@ That is the staged build finished. Work continues past it, against a plan of its
 
 - [x] Stage 13 — controls and focus: real hit targets, drawn icons, keyboard fixes
 - [x] Stage 14 — a sample course, loadable from the home screen
+- [x] Stage 15 — per-criterion rubric points, so one criterion can outweigh another
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
 feedback, points, rationale, outcome alignment, status and sections — plus essays,
 discussion prompts with posting requirements, multi-part groups, and shared stimulus
 passages that other items read from. Rubrics get a grid editor and can be attached to an
-item or to a whole collection. The dashboard summarises coverage, recent work and open
-problems; the coverage matrix shows outcome × collection with the gaps called out.
+item or to a whole collection; a column heading sets a level's points by default, and any
+cell can set its own, so Thesis runs 10 / 7 / 4 / 0 on the same grid where Mechanics runs
+4 / 3 / 2 / 1. The dashboard summarises coverage, recent work and open problems; the
+coverage matrix shows outcome × collection with the gaps called out.
 
 Your work can now leave the browser. **Export** writes a `drawbridge-<code>-<date>.zip` — a
 plain zip with a README inside explaining its own layout — and **Import** brings one back,
