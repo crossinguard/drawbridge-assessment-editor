@@ -1,7 +1,7 @@
 import { repository } from '$lib/repo';
 import { newItem } from '$lib/domain/defaults';
 import { nowIso } from '$lib/domain/ids';
-import { duplicateItem, itemsInSection } from '$lib/domain/items';
+import { duplicateItem, itemsInSection, relocateItem } from '$lib/domain/items';
 import type { Item, ItemKind } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
 import { plain } from './plain.svelte';
@@ -161,6 +161,73 @@ class ItemsStore {
 
     const arrivedIn = [...this.inSection(sectionId).filter((existing) => existing.id !== id), item];
     await this.#renumber(leftBehind, arrivedIn);
+  }
+
+  /**
+   * Moves an item to another collection. Returns false if there was nothing to move.
+   *
+   * The order below is the whole of it, and step one is the one that matters.
+   */
+  async moveToCollection(id: string, toCollectionId: string): Promise<boolean> {
+    if (toCollectionId === '' || toCollectionId === this.collectionId) return false;
+
+    /*
+      Top-level only. A part is not a row — it lives inside its parent's `parts` array
+      and has no independent existence to move — so a part id finds nothing here and
+      the move is refused. Promoting a part to an item of its own is a different
+      operation with different questions to answer.
+    */
+    const item = this.items.find((existing) => existing.id === id);
+    if (!item) return false;
+
+    const from = item.sectionId ?? undefined;
+
+    try {
+      /*
+        FLUSHED, not cancelled, and before anything else is read.
+
+        Cancelling would also happen to work today, and it is worth writing down why it
+        is still the wrong instruction. The moved record is built from the LIVE item
+        below, which already carries anything typed a moment ago, and `#requeue()`
+        afterwards rebuilds the queue for the items staying behind — so nothing is lost
+        in the happy path either way. The tests below cannot tell the two apart, and
+        that was checked rather than assumed.
+
+        What flushing buys is the unhappy path. Everything below this line is `await`ed:
+        a read, a write, a renumber. Cancel first and the pending keystrokes exist only
+        in memory across all of it, with nothing queued to write them — so a failure
+        there, or the tab closing, loses text that had already been typed. Flushing
+        makes the pending work durable before a multi-step structural operation begins,
+        which is what every other structural path here does too.
+      */
+      await this.saver.flush();
+
+      // The append position in the collection it is arriving at, which this store does
+      // not hold — it only ever has one collection's items loaded.
+      const target = await repository.items.listByCollection(toCollectionId);
+      const order = target.filter((existing) => existing.sectionId === undefined).length;
+
+      /*
+        `put`, not `update`. `relocateItem` returns a COMPLETE record and removes
+        `sectionId` and `stimulusId` by deleting the keys — and `update` merges a patch
+        over what is stored, so an absent key keeps its old value. Using it here would
+        leave the item pointing at a section of the collection it just left, which is
+        the precise thing `relocateItem` exists to prevent.
+      */
+      const moved = relocateItem(plain(item), toCollectionId, order);
+
+      this.#dirty.delete(id);
+      await repository.items.put(moved);
+
+      this.items = this.items.filter((existing) => existing.id !== id);
+      // Drop it from any pending write, or the debounce puts it straight back here.
+      this.#requeue();
+      await this.#renumber(this.inSection(from));
+      return true;
+    } catch (cause) {
+      this.saver.markFailed(cause);
+      return false;
+    }
   }
 
   /** Changes an item's kind, leaving the content alone for the author to sort out. */

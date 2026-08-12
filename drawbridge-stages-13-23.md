@@ -20,7 +20,7 @@ but only because the one-line summary happened to be right.
 | ✅ | 17 | Collection-kind capabilities — the task/item builder split | — |
 | ✅ | 18 | Markdown toolbar | — |
 | ✅ | 19 | Clone a course, and delete from the home list | — |
-| | 20 | Move items between collections | — |
+| ✅ | 20 | Move items between collections | — |
 | | 21 | The write funnel — pure refactor, no new UI | — |
 | | 22 | Session journal — undo, redo, the staging area | — |
 | | 23 | Command palette | — |
@@ -180,30 +180,32 @@ are not coming, and carried onto an empty shell it reports itself as a points mi
 new course's first screen. Settings survive whole, though `remapSnapshotIds` mints new ids for
 the level sets, which is correct: the copy owns its own.
 
----
+### Stage 20 — Move items between collections
 
-## Stage 20 — Move items between collections
+`relocateItem` in `domain/items.ts`, `items.moveToCollection(id, to)`, and a "Move to…" select
+in the item header. Shipped as planned except for one instruction that was wrong.
 
-**Delivers** "Move to…" on an item card. Fifth thing `/help#missing` lists as absent.
+**Deviation, and it matters:** the plan said write with `repository.items.update`. `update`
+MERGES (`{ ...existing, ...patch }`), so the keys `relocateItem` deletes — `sectionId`,
+`stimulusId` — would have kept their stored values, landing the item pointing at a section of
+the collection it just left. That is the exact failure `relocateItem` exists to prevent. It
+writes a complete record with `put` instead, and CLAUDE.md's repository section now carries
+the general rule: an edit that REMOVES a field cannot use `update`.
 
-New `relocateItem(item, toCollectionId, order)` in `domain/items.ts` beside `duplicateItem`.
-**`sectionId` and `stimulusId` are cleared** — both name things scoped to the old collection.
-`collectionId` **recurses into parts**: the items store gives each part its own, so a group
-moved without recursion leaves parts claiming the old collection — invisible until an export.
+**The flush is durability, not correctness, and the tests cannot prove it.** The plan's
+reasoning — that cancelling loses typed text, and cancelling afterwards resurrects a ghost —
+does not hold against this implementation: the moved record is built from the live in-memory
+item and `#requeue()` rebuilds the queue for whatever stays. Swapping `flush()` for `cancel()`
+leaves every test passing, which was checked by doing it. Flushing is still right, for the
+narrower reason that everything after it is `await`ed and pending keystrokes should not live
+only in memory across a read, a write and a renumber. Both the store comment and the test say
+so rather than claiming more.
 
-`moveToCollection(id, to)` in the items store, in this order:
-
-1. **`await this.saver.flush()`** — not `cancel()`. There may be typed text pending for this
-   item; cancelling loses it, and cancelling *after* the move writes the pending value with
-   the old `collectionId` and resurrects a ghost.
-2. `#dirty.delete(id)`; read the target group for the append order; `repository.items.update`
-   through `plain()`; drop from local state; `#requeue()`; `#renumber` the vacated group.
-
-**Refuse moving a *part* out of a group.** A part is not a row. That is "promote part to item",
-its own stage.
-
-**Tests** (integration, `fake-indexeddb`): a pending debounced edit is written before the move
-and the moved record carries the typed text — this is the one that would ship broken.
+**Verification note:** two false alarms, both mine. Orders reading `0, 2, 3` after a move
+looked like a renumber failure and was the sample numbering `order` continuously across a
+collection while the store scopes it per section. And a card selected by `header.innerText
+.includes('group')` matched every card, because the kind `<select>` contains all eight option
+labels — the wrong item got moved. Select by `select.value`, not by header text.
 
 ---
 

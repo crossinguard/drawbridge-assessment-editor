@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { items } from './items.svelte';
 import { repository } from '$lib/repo';
-import { newCollection, newVault } from '$lib/domain/defaults';
+import { newCollection, newItem, newVault } from '$lib/domain/defaults';
 import { newId } from '$lib/domain/ids';
 import { itemPoints } from '$lib/domain/points';
 import { scoringContext } from '$lib/domain/fixtures';
@@ -340,5 +340,174 @@ describe('group parts', () => {
     expect(items.duplicatePart('no-such-group', 'nope')).toBeNull();
     expect(() => items.removePart('no-such-group', 'nope')).not.toThrow();
     expect(() => items.movePart('no-such-group', 'nope', 1)).not.toThrow();
+  });
+});
+
+describe('moving an item to another collection', () => {
+  let otherId: string;
+
+  beforeEach(async () => {
+    const collection = await repository.collections.get(collectionId);
+    const other = newCollection({
+      vaultId: collection!.vaultId,
+      kind: 'bank',
+      title: 'Question bank'
+    });
+    await repository.collections.put(other);
+    otherId = other.id;
+  });
+
+  it('writes a pending edit BEFORE the move, so typed text arrives with it', async () => {
+    const item = await items.add('choice', undefined);
+    item.stem = 'Typed but not yet saved';
+    items.queueFieldSave(item.id);
+    // Deliberately NOT flushed: the edit is mid-debounce, which is the whole case.
+
+    expect(await items.moveToCollection(item.id, otherId)).toBe(true);
+
+    const stored = await repository.items.get(item.id);
+    expect(stored?.stem).toBe('Typed but not yet saved');
+    expect(stored?.collectionId).toBe(otherId);
+  });
+
+  it('does not throw away pending edits to the items STAYING behind', async () => {
+    /*
+      The saver holds ONE queued value covering every dirty item, so a move that got
+      the queue out of its way carelessly would take the other items' typed text with
+      it.
+
+      Worth knowing what this does NOT pin: swapping the store's `flush()` for
+      `cancel()` leaves both of these assertions passing, which was checked rather than
+      assumed. The moved record is built from the live in-memory item and `#requeue()`
+      rebuilds the queue for the rest, so the happy path survives either way. The reason
+      the store flushes is durability across the awaits that follow — see the comment
+      there.
+    */
+    const staying = await items.add('choice', undefined);
+    const moving = await items.add('choice', undefined);
+
+    staying.stem = 'Still being written';
+    items.queueFieldSave(staying.id);
+    moving.stem = 'On its way out';
+    items.queueFieldSave(moving.id);
+
+    await items.moveToCollection(moving.id, otherId);
+    await items.flush();
+
+    expect((await repository.items.get(staying.id))?.stem).toBe('Still being written');
+    expect((await repository.items.get(moving.id))?.stem).toBe('On its way out');
+  });
+
+  it('leaves no ghost behind in the collection it left', async () => {
+    // The other half of the same hazard: a pending write landing after the move.
+    const item = await items.add('choice', undefined);
+    item.stem = 'Moving';
+    items.queueFieldSave(item.id);
+
+    await items.moveToCollection(item.id, otherId);
+    await items.flush();
+
+    expect(await repository.items.listByCollection(collectionId)).toEqual([]);
+    expect((await repository.items.listByCollection(otherId)).map((i) => i.id)).toEqual([item.id]);
+  });
+
+  it('clears the section it was in, rather than pointing at one that is elsewhere', async () => {
+    /*
+      `update` merges a patch over the stored record, so a key deleted from the patch
+      keeps its old value — which is why the move writes a whole record with `put`.
+      Get that wrong and the item lands claiming a section of the collection it left,
+      invisible on every screen until an export.
+    */
+    const sectionId = newId();
+    const item = await items.add('choice', sectionId);
+    expect((await repository.items.get(item.id))?.sectionId).toBe(sectionId);
+
+    await items.moveToCollection(item.id, otherId);
+
+    const stored = await repository.items.get(item.id);
+    expect(stored?.sectionId).toBeUndefined();
+    expect(stored?.collectionId).toBe(otherId);
+  });
+
+  it('drops a stimulus link, because the passage stayed behind', async () => {
+    const passage = await items.add('stimulus', undefined);
+    const question = await items.add('choice', undefined);
+    question.stimulusId = passage.id;
+    items.queueFieldSave(question.id);
+    await items.flush();
+
+    await items.moveToCollection(question.id, otherId);
+
+    expect((await repository.items.get(question.id))?.stimulusId).toBeUndefined();
+    // The passage itself is untouched, and stays where it was.
+    expect((await repository.items.get(passage.id))?.collectionId).toBe(collectionId);
+  });
+
+  it('takes a group’s parts with it, collectionId and all', async () => {
+    /*
+      Parts are not rows, but each carries its own `collectionId`. A group moved without
+      recursing leaves its parts claiming a collection they are not in — nothing on
+      screen reads that field, so it surfaces only when an export or a later query does.
+    */
+    const group = await items.add('group', undefined);
+    items.addPart(group.id, 'shortAnswer');
+    items.addPart(group.id, 'essay');
+    await items.flush();
+
+    await items.moveToCollection(group.id, otherId);
+
+    const stored = await repository.items.get(group.id);
+    expect(stored?.parts).toHaveLength(2);
+    for (const part of stored?.parts ?? []) expect(part.collectionId).toBe(otherId);
+    // And the parts keep their own order within the group.
+    expect(stored?.parts.map((part) => part.order)).toEqual([0, 1]);
+  });
+
+  it('appends after what is already in the target collection', async () => {
+    const sitting = newItem({ collectionId: otherId, kind: 'choice', order: 0 });
+    await repository.items.put(sitting);
+
+    const item = await items.add('choice', undefined);
+    await items.moveToCollection(item.id, otherId);
+
+    expect((await repository.items.get(item.id))?.order).toBe(1);
+  });
+
+  it('closes the gap in the collection it left', async () => {
+    const a = await items.add('choice', undefined);
+    const b = await items.add('choice', undefined);
+    const c = await items.add('choice', undefined);
+    b.stem = 'gone';
+    c.stem = 'last';
+    a.stem = 'first';
+    items.queueFieldSave(a.id);
+    items.queueFieldSave(c.id);
+    await items.flush();
+
+    await items.moveToCollection(b.id, otherId);
+
+    const left = await repository.items.listByCollection(collectionId);
+    expect(left.sort((x, y) => x.order - y.order).map((i) => [i.stem, i.order])).toEqual([
+      ['first', 0],
+      ['last', 1]
+    ]);
+  });
+
+  it('refuses to move a part out of its group', async () => {
+    // A part has no independent existence to move. Promoting one is its own operation.
+    const group = await items.add('group', undefined);
+    const part = items.addPart(group.id, 'choice')!;
+    await items.flush();
+
+    expect(await items.moveToCollection(part.id, otherId)).toBe(false);
+    expect((await repository.items.get(group.id))?.parts).toHaveLength(1);
+    expect(await repository.items.get(part.id)).toBeUndefined();
+  });
+
+  it('refuses a move to nowhere, or to the collection it is already in', async () => {
+    const item = await items.add('choice', undefined);
+    expect(await items.moveToCollection(item.id, '')).toBe(false);
+    expect(await items.moveToCollection(item.id, collectionId)).toBe(false);
+    expect(await items.moveToCollection('no-such-item', otherId)).toBe(false);
   });
 });

@@ -292,10 +292,18 @@
         </p>
         <p class="max-w-prose text-sm text-text-muted">
           <strong class="font-medium text-text">An item belongs to exactly one collection.</strong>
-          There is no shared pool, and there is no way to move an item to another collection —
-          the <strong class="font-medium text-text">Duplicate</strong> button in an item's
-          header copies it where it is. That is the intended shape rather than a gap: two
-          copies are meant to diverge.
+          There is no shared pool: the <strong class="font-medium text-text">Duplicate</strong>
+          button in an item's header copies it where it is, and the two copies then diverge.
+          That is the intended shape rather than a gap.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">Move to…</strong> in an item's header hands it
+          to another collection outright — one item, no copy left behind. It arrives at the
+          end, outside any section. Two things do not travel with it, because both name
+          something belonging to the collection it left: its section, and its
+          <strong class="font-medium text-text">Reads from</strong> link to a stimulus. Its
+          outcomes and its rubric do travel, since those belong to the course. A part inside a
+          group cannot be moved on its own — move the group.
         </p>
         <p class="max-w-prose text-sm text-text-muted">
           <strong class="font-medium text-text">Sections</strong> are optional headings —
@@ -682,8 +690,10 @@
             outside the outcome tree.
           </li>
           <li>
-            <strong class="font-medium text-text">No way to move an item between
-            collections.</strong> Duplicate makes an independent copy in the same collection.
+            <strong class="font-medium text-text">No way to promote a part out of its
+            group.</strong> A whole item moves between collections with
+            <strong class="font-medium text-text">Move to…</strong>, but a part inside a group
+            has no independent existence to move — the group goes as one.
           </li>
           <li>
             <strong class="font-medium text-text">No grading, no students, no delivery.</strong>

@@ -67,6 +67,11 @@
 
   const sections = $derived([...(collection?.sections ?? [])].sort((a, b) => a.order - b.order));
 
+  /** Where an item could be moved to: every other collection in this vault. */
+  const elsewhere = $derived(
+    collections.items.filter((entry) => entry.id !== collectionId).sort((a, b) => a.order - b.order)
+  );
+
   // Passages other items can read from. Top-level only: a stimulus tucked inside a
   // group belongs to that group's parts, not to the collection at large.
   const stimuli = $derived(items.items.filter((item) => item.kind === 'stimulus'));
@@ -303,6 +308,7 @@
             issues={issuesByEntity.get(item.id) ?? []}
             rubrics={rubrics.items}
             {stimuli}
+            {elsewhere}
             {scoring}
             {capabilities}
             {focusId}

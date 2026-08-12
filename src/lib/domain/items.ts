@@ -34,6 +34,43 @@ export function duplicateItem(item: Item, generate: () => string = newId): Item 
   };
 }
 
+/**
+ * The same item, belonging to another collection.
+ *
+ * Ownership moves; nothing is copied and no id changes. Two references cannot come with
+ * it, and both would otherwise dangle silently:
+ *
+ * - `sectionId` names a section of the collection being LEFT. Sections belong to their
+ *   collection, so the id means nothing in the new one — the item arrives outside every
+ *   section, which is where a new arrival belongs anyway.
+ * - `stimulusId` names a passage that stayed behind. An item reading from a passage in
+ *   a different collection is not a shape this app has: the passage would not appear in
+ *   its "Reads from" picker, and the exported document would reference something not in
+ *   it. Better to arrive unlinked and visibly so.
+ *
+ * `collectionId` recurses into `parts`. A group's parts are not rows, but the items
+ * store stamps each one with its own `collectionId`, and a group moved without the
+ * recursion leaves its parts claiming a collection they are no longer in — invisible on
+ * every screen, and surfacing only when something reads the field directly.
+ *
+ * `outcomeIds` and `rubricId` stay: both name things owned by the VAULT, and the move
+ * is within one vault.
+ */
+export function relocateItem(item: Item, toCollectionId: string, order: number): Item {
+  const moved: Item = {
+    ...item,
+    collectionId: toCollectionId,
+    order,
+    updatedAt: nowIso(),
+    // Parts keep their own order within the group; only the collection changes.
+    parts: item.parts.map((part) => relocateItem(part, toCollectionId, part.order))
+  };
+
+  delete moved.sectionId;
+  delete moved.stimulusId;
+  return moved;
+}
+
 /** Kinds whose answer is chosen from a fixed list. */
 export const OPTION_KINDS: readonly ItemKind[] = ['choice', 'multi', 'trueFalse'];
 

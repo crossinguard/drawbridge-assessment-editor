@@ -122,6 +122,11 @@ appears in its own initialiser — and is declared beside its schema with the re
 restored bundle whose timestamps had been rewritten would no longer match what was exported,
 and "restore a backup" would stop being a faithful operation. Use `update` for editing.
 
+**But `update` MERGES — it cannot remove a field.** It is `{ ...existing, ...patch }`, so a
+key absent from the patch keeps whatever is stored. Any edit that DELETES a property has to
+write the whole record with `put` instead; `moveToCollection` is the live example, and using
+`update` there would have left moved items pointing at a section of the collection they left.
+
 **A `group` item's parts are not rows.** They live in the parent's `parts` array, so the
 `items` table holds top-level items only and `items.get()` cannot find a part by id. This
 keeps a group's ordering in exactly one place — parts as sibling rows would let row order and
@@ -435,6 +440,32 @@ info severity is what removes it. Nothing that already exists is hidden: existin
 still render when the kind stops offering new ones, and `kindOptions` keeps an item's own
 kind in its dropdown so a `<select>` never shows a value it does not contain.
 
+### Moving an item between collections
+
+**`relocateItem` clears `sectionId` and `stimulusId`, and recurses into `parts`.** Both
+cleared references name something owned by the collection being LEFT, so they would dangle;
+`outcomeIds` and `rubricId` stay, because those belong to the vault. The recursion is the
+one that hides: a part is not a row, but the items store stamps each with its own
+`collectionId`, so a group moved without it leaves parts claiming a collection they are not
+in — no screen reads that field, and it surfaces only in an export.
+
+**The move writes with `put`, not `update`.** `update` merges a patch over the stored record
+(`{ ...existing, ...patch }`), so a key `relocateItem` DELETED keeps its old value — the item
+would land still pointing at a section of the collection it left, which is the precise thing
+the clearing exists to prevent. `relocateItem` returns a complete record, which is what `put`
+wants. The stage plan said `update`; it was wrong, and `items.test.ts` pins the outcome.
+
+**A part cannot be moved out of its group.** `this.items` holds top-level rows only, so a
+part id finds nothing and the move is refused; the UI renders no "Move to…" inside
+`PartsEditor` either. Promoting a part to an item of its own is a different operation.
+
+**`moveToCollection` flushes the saver first, and that is durability rather than
+correctness.** Cancelling would also work today — the moved record is built from the live
+in-memory item and `#requeue()` rebuilds the queue for whatever stays — and the tests cannot
+tell the two apart, which was checked rather than assumed. What flushing buys is that pending
+keystrokes are on disk before a multi-step `await`ed operation begins, instead of living only
+in memory across a read, a write and a renumber.
+
 ### Item kinds
 
 **A group's parts are edited in place inside the top-level record.** Every part operation is
@@ -643,7 +674,7 @@ what a term of real use surfaced: controls and focus (13), a loadable sample cou
 per-criterion rubric points (15), shared rubric tails (16), collection-kind capabilities and
 the task/item split (17), a Markdown toolbar (18), cloning a course (19), moving items between
 collections (20), a write funnel (21), the session journal and undo (22), and a command
-palette (23). **Stages 13 to 19 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
+palette (23). **Stages 13 to 20 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
 not bump again — stage 17 added fields an older reader ignores to show a busier editor, which
 is exactly the case that is NOT a bump. That file carries the per-stage detail — schema shapes, the decisions already made,
 and what each stage is most likely to get wrong.

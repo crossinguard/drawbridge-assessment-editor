@@ -61,6 +61,7 @@ That is the staged build finished. Work continues past it, against a plan of its
 - [x] Stage 17 — collection kinds decide what their editor offers, from settings
 - [x] Stage 18 — a formatting toolbar on every Markdown field
 - [x] Stage 19 — copy a course into next term's, and delete from the home list
+- [x] Stage 20 — move an item to another collection
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
@@ -78,6 +79,10 @@ Every text field takes Markdown, has a Preview toggle, and carries a small row o
 buttons — bold, italic, code, list, quote, link, table — for the syntax nobody remembers.
 They type the same characters you would, into the same box; ignore them and write it by hand
 if you prefer.
+
+**Move to…** in an item's header hands it to another collection — one item, no copy left
+behind. Its section and its stimulus link stay behind with the collection that owned them;
+its outcomes and rubric travel, because those belong to the course.
 
 **Copy…** beside a course on the home screen builds next term's from this one. The settings
 always come across; outcomes, rubrics, collections and items are each optional, and the usual

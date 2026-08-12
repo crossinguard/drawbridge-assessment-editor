@@ -1,6 +1,14 @@
 <script lang="ts">
   import type { Issue } from '$lib/domain/validate';
-  import type { Item, ItemKind, Outcome, Rubric, Section, Vault } from '$lib/domain/schema';
+  import type {
+    Collection,
+    Item,
+    ItemKind,
+    Outcome,
+    Rubric,
+    Section,
+    Vault
+  } from '$lib/domain/schema';
   import { describePoints, itemPoints, type ScoringContext } from '$lib/domain/points';
   import { kindOptions, type KindCapabilities } from '$lib/domain/collections';
   import { items as itemStore } from '$lib/stores/items.svelte';
@@ -19,6 +27,8 @@
     issues: Issue[];
     rubrics: readonly Rubric[];
     stimuli: readonly Item[];
+    /** The other collections in this vault, for "Move to…". */
+    elsewhere: readonly Collection[];
     scoring: ScoringContext;
     /**
      * What this collection's kind offers. The resolved object, never a kind key —
@@ -40,6 +50,7 @@
     issues,
     rubrics,
     stimuli,
+    elsewhere,
     scoring,
     capabilities,
     focusId,
@@ -171,6 +182,30 @@
         <option value="">No section</option>
         {#each sections as section (section.id)}
           <option value={section.id}>{section.title || 'Untitled section'}</option>
+        {/each}
+      </select>
+    {/if}
+
+    {#if elsewhere.length > 0}
+      <!--
+        Moving, not copying: the item leaves this screen and arrives at the end of the
+        other collection, outside its sections. Its own value resets to the prompt
+        straight away, because the control is an action rather than a setting — there
+        is no "current collection" for it to sit showing, the item having gone.
+      -->
+      <select
+        class={CONTROL}
+        value=""
+        onchange={(event) => {
+          const to = event.currentTarget.value;
+          event.currentTarget.value = '';
+          if (to) void itemStore.moveToCollection(item.id, to);
+        }}
+        aria-label="Move this item to another collection"
+      >
+        <option value="">Move to…</option>
+        {#each elsewhere as collection (collection.id)}
+          <option value={collection.id}>{collection.title || 'Untitled'}</option>
         {/each}
       </select>
     {/if}
