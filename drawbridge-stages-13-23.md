@@ -21,7 +21,7 @@ but only because the one-line summary happened to be right.
 | ✅ | 18 | Markdown toolbar | — |
 | ✅ | 19 | Clone a course, and delete from the home list | — |
 | ✅ | 20 | Move items between collections | — |
-| | 21 | The write funnel — pure refactor, no new UI | — |
+| ✅ | 21 | The write funnel — pure refactor, no new UI | — |
 | | 22 | Session journal — undo, redo, the staging area | — |
 | | 23 | Command palette | — |
 
@@ -207,32 +207,36 @@ collection while the store scopes it per section. And a card selected by `header
 .includes('group')` matched every card, because the kind `<select>` contains all eight option
 labels — the wrong item got moved. Select by `select.value`, not by header text.
 
----
+### Stage 21 — The write funnel
 
-## Stage 21 — The write funnel
+`stores/writer.svelte.ts` — `run`/`put`/`putMany`/`update`/`remove`, each taking a
+`WriteIntent { label, vaultId, report?, journal? }`. Every store write routed through it; all
+reads left direct. Shipped as planned. **The existing store tests passed unchanged**, which
+was the stated signal that the refactor changed no behaviour.
 
-**Delivers** every repository write through one place, and every write reporting to a save
-indicator. No user-visible feature, but the reporting improvement is real:
-`collections.create` failing today shows the user nothing at all.
+Two additions the plan did not name. `run(intent, operation)` is the general case the other
+four delegate to, and is what `deleteVault` and `importVault` route through — they are not
+single-record writes, so `put`/`remove` could not have carried them. And `WriteStatus`, a
+reporter for a store with no debounced editing to need an `Autosave`: the vault list had
+nowhere at all to put a failure, so the home screen now renders one, kept separate from
+`vaultList.error` because a load failure replaces the list and a failed rename must not.
 
-Today: three write paths, `repository` imported directly by eight stores, two private funnels
-that got it right (`outcomes.#persistOrder`, `items.#write`) surrounded by seven methods that
-did not — `vaultList.create/rename/remove`, `collections.create/remove`,
-`rubrics.create/remove`, plus `backup.importFile`.
+`ItemsStore` gained a `vaultId`, read from its collection on load. The intent needs one and
+the store did not have it; reading it there beats having the route supply it and carry an
+empty string the day someone forgets.
 
-New `stores/writer.svelte.ts` with `put`/`putMany`/`update`/`remove`, each taking a
-`WriteIntent { label, vaultId, report? }`. Reuse `EntityType` from `validate.ts` rather than
-inventing a table union — `review.linkFor` already maps it to a screen, which stage 22 needs
-for free. One `tables` map and exactly one cast, inside the funnel.
+**`architecture.test.ts` gained two rules**, which is what stops this eroding one convenient
+call at a time: no `repository.<table>.put/putMany/update/remove` outside the funnel, and no
+component or route importing the repository singleton. The second needed narrowing on the
+first run — `ImportPanel` imports the `ImportMode` *type* from `$lib/repo/types`, which is a
+shape and not a way to write anything.
 
-Keep `put` and `update` as separate funnel methods: `put` writes verbatim, and that is what
-makes import faithful. Keep `plain()` at the call site, not inside the funnel.
-
-`vaultList.remove` and `backup.importFile` route through for *reporting only*, flagged
-`journal: false` — both are unbounded writes whose before-image cannot be captured cheaply.
-
-**Tests.** The existing store tests are the safety net and must pass **unchanged**. If one
-needs editing, that is a signal the refactor changed behaviour.
+**Verification note:** forcing a real write failure in the browser is not worth attempting.
+`indexedDB.deleteDatabase` while the app holds a connection stays *blocked*, and every later
+`open` queues behind it — so writes hang rather than fail, which reports neither way and
+wedges the tab. The failure path is pinned in `writer.test.ts` against `fake-indexeddb`
+instead, reporter state and all; the browser is for confirming the refactor did not quietly
+stop something writing, which it did by exercising all nine paths and reading each back.
 
 ---
 

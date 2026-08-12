@@ -102,8 +102,9 @@ src/lib/
   repo/       The Repository port + the Dexie adapter. The only module that knows
               IndexedDB exists.
   export/     Bundle writer and reader: zip, JSON, Markdown, CSV. Depends on domain only.
-  stores/     Svelte runes tying the above to the UI.
-  components/ UI. Reads stores, calls repo, renders domain.
+  stores/     Svelte runes tying the above to the UI. Every WRITE goes through
+              writer.svelte.ts; reads call the repository directly.
+  components/ UI. Reads stores, calls stores, renders domain — never the repository.
 src/routes/   SvelteKit routes.
 ```
 
@@ -148,6 +149,45 @@ sharing one lets a later merge-import overwrite an arbitrary course. `domain/clo
 input rather than advising. It compares case-insensitively, which is stricter than the
 case-sensitive index, because two courses differing only in case are the same course to
 whoever is reading the list.
+
+### The write funnel
+
+**Every repository WRITE goes through `stores/writer.svelte.ts`.** Reads stay direct —
+`listByVault`, `get`, `exportVault` are fine and routing them would be ceremony. Writes are
+funnelled because a write that fails silently is the failure this app cannot afford, and
+before stage 21 seven store methods did exactly that: `collections.create` failing moved no
+indicator, showed no message, and the collection simply was not there.
+`architecture.test.ts` fails the build on `repository.<table>.put/putMany/update/remove`
+outside the funnel, and on any component or route importing the repository singleton.
+
+**Every write carries a `WriteIntent { label, vaultId, report?, journal? }`.** `label` is
+prose — "Deleted an item" — and nothing displays it yet; it exists because the stage-22
+journal needs one per write, and retrofitting labels onto forty call sites later is how they
+all end up being `'put'`. `EntityType` is reused from `validate.ts` rather than a table-name
+union of its own, because `review.linkFor` already maps it to the screen that can fix a
+record.
+
+**`put` and `update` stay separate funnel methods.** `put` writes verbatim, which is what
+makes a restored bundle deep-equal what was exported; `update` merges and stamps. Collapsing
+them would lose that distinction at exactly the layer that must not.
+
+**`plain()` stays at the CALL SITE, not inside the funnel.** Whether a value is a `$state`
+proxy is something only the caller knows, and doing it centrally would mean walking every
+value defensively on every write.
+
+**A store's own `Autosave` callback passes no `report`.** The saver marks its own outcome
+around that callback, so handing it to the funnel as well would report twice on one write.
+Immediate structural writes DO pass one, because nothing else is watching them.
+
+**`journal: false` marks a write undo cannot reverse** — deleting a course, importing a
+bundle, loading the sample. Each touches an unbounded number of records across every table,
+so capturing a before-image costs as much as the write. Better for undo to say plainly that
+it cannot than to offer and fail.
+
+**`WriteStatus` exists for stores with no debounced editing to need an `Autosave`.** The
+vault list is the case, and the home screen renders its error — separately from
+`vaultList.error`, which is a LOAD failure and replaces the list entirely. A rename that did
+not save should say so without taking the courses away.
 
 ### Store and UI invariants
 
@@ -674,7 +714,7 @@ what a term of real use surfaced: controls and focus (13), a loadable sample cou
 per-criterion rubric points (15), shared rubric tails (16), collection-kind capabilities and
 the task/item split (17), a Markdown toolbar (18), cloning a course (19), moving items between
 collections (20), a write funnel (21), the session journal and undo (22), and a command
-palette (23). **Stages 13 to 20 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
+palette (23). **Stages 13 to 21 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
 not bump again — stage 17 added fields an older reader ignores to show a busier editor, which
 is exactly the case that is NOT a bump. That file carries the per-stage detail — schema shapes, the decisions already made,
 and what each stage is most likely to get wrong.

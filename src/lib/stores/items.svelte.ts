@@ -5,6 +5,7 @@ import { duplicateItem, itemsInSection, relocateItem } from '$lib/domain/items';
 import type { Item, ItemKind } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
 import { plain } from './plain.svelte';
+import { writer } from './writer.svelte';
 import { describe, type LoadStatus } from './vaults.svelte';
 
 /*
@@ -25,12 +26,24 @@ class ItemsStore {
   status = $state<LoadStatus>('idle');
   error = $state<string | null>(null);
   collectionId = $state('');
+  /*
+    Carried so a write can say which course it belongs to. Read from the collection on
+    load rather than passed in, because the alternative is the route remembering to
+    supply it and a write intent quietly carrying an empty string when it forgets.
+  */
+  vaultId = $state('');
 
   #dirty = new Set<string>();
 
   readonly saver = new Autosave<Item[]>(async (records) => {
     if (records.length === 0) return;
-    await repository.items.putMany(records.map((item) => ({ ...item, updatedAt: nowIso() })));
+    // No `report` here: the saver IS the reporter, and it marks its own outcome around
+    // this callback. Passing itself would have it report twice on the same write.
+    await writer.putMany(
+      'item',
+      records.map((item) => ({ ...item, updatedAt: nowIso() })),
+      { label: 'Edited an item', vaultId: this.vaultId }
+    );
     this.#dirty.clear();
   });
 
@@ -42,7 +55,12 @@ class ItemsStore {
     this.#dirty.clear();
     this.saver.cancel();
     try {
-      this.items = await repository.items.listByCollection(collectionId);
+      const [loaded, collection] = await Promise.all([
+        repository.items.listByCollection(collectionId),
+        repository.collections.get(collectionId)
+      ]);
+      this.items = loaded;
+      this.vaultId = collection?.vaultId ?? '';
       this.error = null;
       this.status = 'ready';
     } catch (cause) {
@@ -93,7 +111,7 @@ class ItemsStore {
     });
 
     this.items = [...this.items, item];
-    await this.#write([item]);
+    await this.#write([item], 'Added an item');
     return item;
   }
 
@@ -111,7 +129,7 @@ class ItemsStore {
     reordered.splice(position + 1, 0, copy);
 
     this.items = [...this.items, copy];
-    await this.#renumber(reordered);
+    await this.#renumber('Duplicated an item', reordered);
     return copy;
   }
 
@@ -122,11 +140,15 @@ class ItemsStore {
 
     try {
       this.#dirty.delete(id);
-      await repository.items.remove(id);
+      await writer.remove('item', id, {
+        label: 'Deleted an item',
+        vaultId: this.vaultId,
+        report: this.saver
+      });
       this.items = this.items.filter((existing) => existing.id !== id);
       // Drop it from any pending write, or the debounce puts it straight back.
       this.#requeue();
-      await this.#renumber(this.inSection(sectionId));
+      await this.#renumber('Deleted an item', this.inSection(sectionId));
     } catch (cause) {
       this.saver.markFailed(cause);
     }
@@ -144,7 +166,7 @@ class ItemsStore {
     const reordered = [...group];
     const [moved] = reordered.splice(index, 1);
     if (moved) reordered.splice(target, 0, moved);
-    await this.#renumber(reordered);
+    await this.#renumber('Reordered an item', reordered);
   }
 
   /** Moves an item into another section, or out of all of them with `undefined`. */
@@ -160,7 +182,7 @@ class ItemsStore {
     else item.sectionId = sectionId;
 
     const arrivedIn = [...this.inSection(sectionId).filter((existing) => existing.id !== id), item];
-    await this.#renumber(leftBehind, arrivedIn);
+    await this.#renumber('Moved an item to another section', leftBehind, arrivedIn);
   }
 
   /**
@@ -217,12 +239,16 @@ class ItemsStore {
       const moved = relocateItem(plain(item), toCollectionId, order);
 
       this.#dirty.delete(id);
-      await repository.items.put(moved);
+      await writer.put('item', moved, {
+        label: 'Moved an item to another collection',
+        vaultId: this.vaultId,
+        report: this.saver
+      });
 
       this.items = this.items.filter((existing) => existing.id !== id);
       // Drop it from any pending write, or the debounce puts it straight back here.
       this.#requeue();
-      await this.#renumber(this.inSection(from));
+      await this.#renumber('Moved an item to another collection', this.inSection(from));
       return true;
     } catch (cause) {
       this.saver.markFailed(cause);
@@ -335,7 +361,7 @@ class ItemsStore {
   }
 
   /** Writes `order` as a dense 0..n-1 run over each supplied group. */
-  async #renumber(...groups: Item[][]): Promise<void> {
+  async #renumber(label: string, ...groups: Item[][]): Promise<void> {
     const changed: Item[] = [];
     for (const group of groups) {
       group.forEach((item, index) => {
@@ -343,18 +369,27 @@ class ItemsStore {
         changed.push(item);
       });
     }
-    await this.#write(changed);
+    await this.#write(changed, label);
   }
 
-  async #write(records: Item[]): Promise<void> {
+  /**
+   * The structural write path: immediate, and reported.
+   *
+   * Was already a funnel of its own before stage 21 — this is the same thing routed
+   * through the shared one, so the `try`/`markSaved`/`markFailed` it used to spell out
+   * now happens once, in `writer`, for every store.
+   */
+  async #write(records: Item[], label: string): Promise<void> {
     if (records.length === 0) return;
     try {
-      await repository.items.putMany(
-        records.map((item) => plain({ ...item, updatedAt: nowIso() }))
+      await writer.putMany(
+        'item',
+        records.map((item) => plain({ ...item, updatedAt: nowIso() })),
+        { label, vaultId: this.vaultId, report: this.saver }
       );
-      this.saver.markSaved();
-    } catch (cause) {
-      this.saver.markFailed(cause);
+    } catch {
+      // Already reported by the funnel. Swallowed here because a structural edit is
+      // fire-and-forget from the UI's side: the indicator is the report.
     }
   }
 

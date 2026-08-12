@@ -78,6 +78,20 @@
 
   <StorageNotice />
 
+  <!--
+    A write that failed on this screen. Separate from `vaultList.error`, which is a LOAD
+    failure and replaces the list entirely; a rename that did not save should say so
+    without taking the courses away. Before stage 21 this had nowhere to go at all.
+  -->
+  {#if vaultList.writes.error}
+    <p
+      role="status"
+      class="rounded-md border border-danger/40 bg-surface px-3 py-2 text-sm text-danger"
+    >
+      That did not save: {vaultList.writes.error}
+    </p>
+  {/if}
+
   {#if vaultList.status === 'loading'}
     <p class="text-sm text-text-muted">Opening…</p>
   {:else if vaultList.status === 'error'}

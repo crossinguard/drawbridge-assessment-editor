@@ -4,6 +4,7 @@ import { newVault } from '$lib/domain/defaults';
 import { nowIso } from '$lib/domain/ids';
 import type { Vault } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
+import { WriteStatus, writer } from './writer.svelte';
 import { plain } from './plain.svelte';
 
 /*
@@ -21,6 +22,17 @@ class VaultListStore {
   items = $state<Vault[]>([]);
   status = $state<LoadStatus>('idle');
   error = $state<string | null>(null);
+
+  /*
+    Where a failed write on this screen goes.
+
+    There is no debounced editing on the course list — create, rename and delete are all
+    immediate — so there was no `Autosave` for them to report to, and before stage 21 a
+    failure went nowhere at all: no indicator moved, no message appeared, and the course
+    simply was not there. `error` above is the LOAD error and the screen renders it in
+    place of the list, which is the wrong treatment for a write that failed.
+  */
+  readonly writes = new WriteStatus();
 
   async load(): Promise<void> {
     /*
@@ -44,27 +56,45 @@ class VaultListStore {
 
   async create(input: { name: string; code: string; term?: string }): Promise<Vault> {
     const vault = newVault(input);
-    await repository.vaults.put(plain(vault));
+    await writer.put('vault', plain(vault), {
+      label: 'Created a course',
+      vaultId: vault.id,
+      report: this.writes
+    });
     await this.load();
     return vault;
   }
 
   async rename(id: string, patch: Partial<Vault>): Promise<void> {
-    await repository.vaults.update(id, plain(patch));
+    await writer.update('vault', id, plain(patch), {
+      label: 'Renamed a course',
+      vaultId: id,
+      report: this.writes
+    });
     await this.load();
   }
 
-  /** Removes the vault and everything under it. There is no undo for this. */
+  /**
+   * Removes the vault and everything under it. There is no undo for this.
+   *
+   * `journal: false`, and it will stay false. The write touches an unbounded number of
+   * records across every table, so capturing a before-image costs as much as the delete
+   * — and an undo that offered to restore a course and then could not would be worse
+   * than one that says plainly that it cannot.
+   */
   async remove(id: string): Promise<void> {
-    await repository.deleteVault(id);
+    await writer.run(
+      { label: 'Deleted a course', vaultId: id, report: this.writes, journal: false },
+      () => repository.deleteVault(id)
+    );
     await this.load();
   }
 
   /**
    * Copies a course, carrying its settings and as much content as was asked for.
    *
-   * One method rather than a sequence the route performs, so that when the write funnel
-   * lands there is a single place to retrofit.
+   * One method rather than a sequence the route performs, which is what made the write
+   * funnel a one-line retrofit here rather than a change to the clone screen.
    *
    * The `flushAll()` is not optional. `exportVault` reads STORAGE, and the settings
    * screen writes on a debounce — so cloning straight after editing a status label
@@ -79,7 +109,13 @@ class VaultListStore {
 
     // 'new' rather than 'merge', which is what routes this through `remapSnapshotIds`
     // and makes the copy independent. Cloning does not remap anything itself.
-    const result = await repository.importVault(plain(copy), 'new');
+    //
+    // `journal: false` for the same reason as deleting: an import writes every table at
+    // once and there is no cheap before-image.
+    const result = await writer.run(
+      { label: 'Copied a course', vaultId: sourceId, report: this.writes, journal: false },
+      () => repository.importVault(plain(copy), 'new')
+    );
     await this.load();
     return result.vaultId;
   }

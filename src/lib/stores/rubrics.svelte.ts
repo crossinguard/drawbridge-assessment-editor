@@ -11,6 +11,7 @@ import {
 import type { Level, Rubric } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
 import { plain } from './plain.svelte';
+import { writer } from './writer.svelte';
 import { describe, type LoadStatus } from './vaults.svelte';
 
 /*
@@ -31,7 +32,12 @@ class RubricsStore {
   open = $state<Rubric | null>(null);
 
   readonly saver = new Autosave<Rubric>(async (value) => {
-    await repository.rubrics.put({ ...value, updatedAt: nowIso() });
+    // No `report`: the saver marks its own outcome around this callback.
+    await writer.put(
+      'rubric',
+      { ...value, updatedAt: nowIso() },
+      { label: 'Edited a rubric', vaultId: this.vaultId }
+    );
     const index = this.items.findIndex((rubric) => rubric.id === value.id);
     if (index >= 0) this.items[index] = { ...value };
   });
@@ -92,13 +98,21 @@ class RubricsStore {
       title: input.title,
       ...(input.levels ? { levels: input.levels } : {})
     });
-    await repository.rubrics.put(plain(rubric));
+    await writer.put('rubric', plain(rubric), {
+      label: 'Added a rubric',
+      vaultId: this.vaultId,
+      report: this.saver
+    });
     this.items = [...this.items, rubric];
     return rubric;
   }
 
   async remove(rubricId: string): Promise<void> {
-    await repository.rubrics.remove(rubricId);
+    await writer.remove('rubric', rubricId, {
+      label: 'Deleted a rubric',
+      vaultId: this.vaultId,
+      report: this.saver
+    });
     this.items = this.items.filter((rubric) => rubric.id !== rubricId);
     if (this.open?.id === rubricId) {
       this.saver.cancel();

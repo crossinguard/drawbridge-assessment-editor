@@ -5,6 +5,7 @@ import { bundleFilename } from '$lib/export/format';
 import { APP_VERSION, downloadBytes, readFileBytes } from '$lib/export/download';
 import type { ImportMode } from '$lib/repo/types';
 import { describe } from './vaults.svelte';
+import { writer } from './writer.svelte';
 
 /*
   Getting work out of the browser, and back in.
@@ -129,7 +130,11 @@ class BackupStore {
     this.error = null;
     try {
       const { sampleSnapshot } = await import('$lib/domain/sample');
-      const imported = await repository.importVault(sampleSnapshot(), 'new');
+      const snapshot = sampleSnapshot();
+      const imported = await writer.run(
+        { label: 'Loaded the sample course', vaultId: snapshot.vault.id, journal: false },
+        () => repository.importVault(snapshot, 'new')
+      );
       return {
         vaultId: imported.vaultId,
         mode: 'new',
@@ -181,7 +186,18 @@ class BackupStore {
         };
       }
 
-      const imported = await repository.importVault(result.snapshot, mode);
+      /*
+        Through the funnel with `journal: false` and no `report`.
+
+        An import writes every table at once, so there is no cheap before-image for undo
+        to hold — the same reason deleting a course is unjournalable. And it does its own
+        reporting: every failure below becomes `fatal` on the returned outcome, which the
+        import panel renders in place. Passing a reporter as well would say it twice.
+      */
+      const imported = await writer.run(
+        { label: 'Imported a bundle', vaultId: result.snapshot.vault.id, journal: false },
+        () => repository.importVault(result.snapshot!, mode)
+      );
       return {
         vaultId: imported.vaultId,
         mode,

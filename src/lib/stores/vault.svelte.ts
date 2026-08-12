@@ -2,6 +2,7 @@ import { repository } from '$lib/repo';
 import type { Vault } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
 import { plain } from './plain.svelte';
+import { writer } from './writer.svelte';
 import { describe, type LoadStatus } from './vaults.svelte';
 
 /*
@@ -18,7 +19,8 @@ class ActiveVaultStore {
   error = $state<string | null>(null);
 
   readonly saver = new Autosave<Vault>(async (value) => {
-    await repository.vaults.put(value);
+    // No `report`: the saver marks its own outcome around this callback.
+    await writer.put('vault', value, { label: 'Edited course settings', vaultId: value.id });
   });
 
   /** Loads a vault, or re-uses the one already open. */

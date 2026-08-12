@@ -143,6 +143,53 @@ describe('src/lib dependency direction', () => {
   });
 });
 
+describe('writes go through the funnel', () => {
+  it('lets no store call a repository write directly', () => {
+    /*
+      Reads stay direct — `listByVault`, `get`, `exportVault` are all fine, and routing
+      them would be ceremony. It is WRITES that have to be funnelled, because a write
+      that fails silently is the failure this app cannot afford, and before stage 21
+      seven methods did exactly that.
+
+      This is the rule that erodes one convenient call at a time: adding a store method
+      is easy, remembering that it needs a reporter is not. So the text scan, rather
+      than trust.
+    */
+    const writes = /\brepository\.(vaults|outcomes|collections|items|rubrics)\.(put|putMany|update|remove)\b/g;
+
+    const offenders = sourceFilesUnder(join(libDir, 'stores'))
+      .filter((file) => !file.endsWith('.test.ts') && !file.endsWith('writer.svelte.ts'))
+      .flatMap((file) => {
+        const text = readFileSync(file, 'utf8');
+        return [...text.matchAll(writes)].map(
+          (match) => `${relative(libDir, file)}:${text.slice(0, match.index).split('\n').length}`
+        );
+      });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps the repository ITSELF out of components and routes', () => {
+    /*
+      A component reaching past the stores would bypass both the funnel and the
+      reporting, and there is no store method it could not have called instead.
+
+      `$lib/repo/types` is fine and deliberately not caught: `ImportPanel` imports the
+      `ImportMode` type from it, which is a shape rather than a way to write anything.
+      What is banned is the singleton.
+    */
+    const offenders = sourceFilesUnder(join(libDir, 'components'))
+      .concat(sourceFilesUnder(join(libDir, '..', 'routes')))
+      .flatMap((file) =>
+        importsIn(file)
+          .filter((specifier) => /(^|\/)repo$/.test(specifier))
+          .map((specifier) => `${relative(libDir, file)} imports "${specifier}"`)
+      );
+
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe('vocabularies stay data', () => {
   it('never compares a collection kind against a literal', () => {
     /*

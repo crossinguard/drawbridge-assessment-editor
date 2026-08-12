@@ -4,6 +4,7 @@ import { newId, nowIso } from '$lib/domain/ids';
 import type { Collection, Section } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
 import { plain } from './plain.svelte';
+import { writer } from './writer.svelte';
 import { describe, type LoadStatus } from './vaults.svelte';
 
 /*
@@ -24,7 +25,12 @@ class CollectionsStore {
   open = $state<Collection | null>(null);
 
   readonly saver = new Autosave<Collection>(async (value) => {
-    await repository.collections.put({ ...value, updatedAt: nowIso() });
+    // No `report`: the saver marks its own outcome around this callback.
+    await writer.put(
+      'collection',
+      { ...value, updatedAt: nowIso() },
+      { label: 'Edited a collection', vaultId: this.vaultId }
+    );
     // Keep the list in step, so the collections index does not show a stale title.
     const index = this.items.findIndex((collection) => collection.id === value.id);
     if (index >= 0) this.items[index] = { ...value };
@@ -68,14 +74,22 @@ class CollectionsStore {
       title: input.title,
       order: this.items.filter((existing) => existing.kind === input.kind).length
     });
-    await repository.collections.put(plain(collection));
+    await writer.put('collection', plain(collection), {
+      label: 'Added a collection',
+      vaultId: this.vaultId,
+      report: this.saver
+    });
     this.items = [...this.items, collection];
     return collection;
   }
 
   /** Removes the collection and, through the repository cascade, its items. */
   async remove(collectionId: string): Promise<void> {
-    await repository.collections.remove(collectionId);
+    await writer.remove('collection', collectionId, {
+      label: 'Deleted a collection',
+      vaultId: this.vaultId,
+      report: this.saver
+    });
     this.items = this.items.filter((collection) => collection.id !== collectionId);
     if (this.open?.id === collectionId) {
       this.saver.cancel();

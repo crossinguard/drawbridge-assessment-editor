@@ -5,6 +5,7 @@ import { nowIso } from '$lib/domain/ids';
 import type { Outcome } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
 import { plain } from './plain.svelte';
+import { writer } from './writer.svelte';
 import { describe, type LoadStatus } from './vaults.svelte';
 
 /*
@@ -44,8 +45,12 @@ class OutcomesStore {
   */
   readonly saver = new Autosave<Outcome[]>(async (records) => {
     if (records.length === 0) return;
-    await repository.outcomes.putMany(
-      records.map((outcome) => ({ ...outcome, updatedAt: nowIso() }))
+    // No `report`: the saver marks its own outcome around this callback, so passing
+    // itself would have it report twice on one write.
+    await writer.putMany(
+      'outcome',
+      records.map((outcome) => ({ ...outcome, updatedAt: nowIso() })),
+      { label: 'Edited an outcome', vaultId: this.vaultId }
     );
     this.#dirty.clear();
   });
@@ -141,7 +146,7 @@ class OutcomesStore {
     reordered.splice(afterIndex + 1, 0, outcome);
 
     this.items = [...this.items, outcome];
-    await this.#persistOrder(reordered);
+    await this.#persistOrder('Added an outcome', reordered);
     return outcome;
   }
 
@@ -156,13 +161,17 @@ class OutcomesStore {
         // Drop it from the pending set first, or a queued field save would try to
         // write a record that no longer exists.
         this.#dirty.delete(doomedId);
-        await repository.outcomes.remove(doomedId);
+        await writer.remove('outcome', doomedId, {
+          label: 'Deleted an outcome',
+          vaultId: this.vaultId,
+          report: this.saver
+        });
       }
       this.items = this.items.filter((outcome) => !doomed.includes(outcome.id));
       // Drop the deleted records from anything still queued, or the pending write
       // puts them back.
       this.#requeue();
-      await this.#persistOrder(this.siblingsOf(parentId));
+      await this.#persistOrder('Deleted an outcome', this.siblingsOf(parentId));
     } catch (cause) {
       this.saver.markFailed(cause);
     }
@@ -180,7 +189,7 @@ class OutcomesStore {
     const reordered = [...siblings];
     const [moved] = reordered.splice(index, 1);
     if (moved) reordered.splice(target, 0, moved);
-    await this.#persistOrder(reordered);
+    await this.#persistOrder('Reordered an outcome', reordered);
   }
 
   /** Makes the outcome a child of the sibling immediately above it. */
@@ -199,7 +208,7 @@ class OutcomesStore {
     outcome.parentId = newParent.id;
     const newSiblings = [...this.siblingsOf(newParent.id).filter((s) => s.id !== id), outcome];
 
-    await this.#persistOrder(oldSiblings, newSiblings);
+    await this.#persistOrder('Indented an outcome', oldSiblings, newSiblings);
   }
 
   /** Makes the outcome a sibling of its parent, immediately after it. */
@@ -219,7 +228,7 @@ class OutcomesStore {
     const newSiblings = [...uncles];
     newSiblings.splice(parentIndex + 1, 0, outcome);
 
-    await this.#persistOrder(oldSiblings, newSiblings);
+    await this.#persistOrder('Outdented an outcome', oldSiblings, newSiblings);
   }
 
   /**
@@ -229,7 +238,7 @@ class OutcomesStore {
    * Imported data with duplicate or sparse orders gets tidied the first time anything
    * in that group is touched.
    */
-  async #persistOrder(...groups: Outcome[][]): Promise<void> {
+  async #persistOrder(label: string, ...groups: Outcome[][]): Promise<void> {
     const changed: Outcome[] = [];
     for (const group of groups) {
       group.forEach((outcome, index) => {
@@ -240,14 +249,16 @@ class OutcomesStore {
     if (changed.length === 0) return;
 
     try {
-      await repository.outcomes.putMany(
-        changed.map((outcome) => plain({ ...outcome, updatedAt: nowIso() }))
+      // Reported through the funnel: this write skipped the debounce, so without a
+      // report the indicator would read "No changes" immediately after the user moved
+      // a row, and say nothing at all when the write failed.
+      await writer.putMany(
+        'outcome',
+        changed.map((outcome) => plain({ ...outcome, updatedAt: nowIso() })),
+        { label, vaultId: this.vaultId, report: this.saver }
       );
-      // Reported explicitly: this write skipped the debounce, so without this the
-      // indicator would read "No changes" immediately after the user moved a row.
-      this.saver.markSaved();
-    } catch (cause) {
-      this.saver.markFailed(cause);
+    } catch {
+      // Already reported by the funnel.
     }
   }
 

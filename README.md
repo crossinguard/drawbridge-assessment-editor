@@ -62,6 +62,7 @@ That is the staged build finished. Work continues past it, against a plan of its
 - [x] Stage 18 — a formatting toolbar on every Markdown field
 - [x] Stage 19 — copy a course into next term's, and delete from the home list
 - [x] Stage 20 — move an item to another collection
+- [x] Stage 21 — every write through one funnel, and every failure reported
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
