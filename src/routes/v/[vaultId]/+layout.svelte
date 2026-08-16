@@ -5,10 +5,13 @@
   import { journal } from '$lib/stores/journal.svelte';
   import { storage } from '$lib/stores/storage.svelte';
   import { undo } from '$lib/stores/undo.svelte';
+  import CommandPalette from '$lib/components/CommandPalette.svelte';
   import SaveIndicator from '$lib/components/SaveIndicator.svelte';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
   let { children } = $props();
+
+  let palette = $state<CommandPalette | null>(null);
 
   const vaultId = $derived(page.params.vaultId ?? '');
 
@@ -42,7 +45,21 @@
 
   function onKeydown(event: KeyboardEvent) {
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+
+    /*
+      The palette is the opposite of undo on this point: it opens from anywhere,
+      text field included, because reaching for it mid-sentence is exactly when you
+      want it. `preventDefault` also stops Firefox handing Ctrl+K to its search bar.
+    */
+    if (event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      void palette?.show();
+      return;
+    }
+
     if (event.key.toLowerCase() !== 'z') return;
+    // While the palette is open its input holds focus, so this returns on its own
+    // and Ctrl+Z inside the palette does nothing to the course.
     if (editingText(event.target)) return;
 
     event.preventDefault();
@@ -169,6 +186,8 @@
       {/if}
       {@render children()}
     </main>
+
+    <CommandPalette bind:this={palette} {vaultId} />
   </div>
 {:else}
   <main class="mx-auto flex min-h-screen max-w-lg items-center justify-center px-6">

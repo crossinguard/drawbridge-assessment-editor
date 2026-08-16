@@ -30,13 +30,15 @@ time, so there is nothing to restart.
 ## Where the data lives
 
 In your browser, in IndexedDB, and nowhere else. There is no server, no account and no
-network call. That is the point, and it is also the risk — export early and often once
-Stage 6 lands.
+network call. That is the point, and it is also the risk — **Export** is the whole defence,
+so use it early and often.
 
 ## Status
 
-Under construction, following the staged build order in
-[drawbridge-redux-plan.md](drawbridge-redux-plan.md).
+Both plans are finished. The original brief ran to stage 12
+([drawbridge-redux-plan.md](drawbridge-redux-plan.md)); a term of real use produced eleven
+more ([drawbridge-stages-13-23.md](drawbridge-stages-13-23.md)), which the second list below
+covers.
 
 - [x] Stage 0 — scaffold, theming, PWA, deploy config
 - [x] Stage 1 — domain model, points, coverage, validation
@@ -52,7 +54,7 @@ Under construction, following the staged build order in
 - [x] Stage 11 — PWA: offline, installable, update prompt, icons
 - [x] Stage 12 — the in-app guide at `/help`
 
-That is the staged build finished. Work continues past it, against a plan of its own:
+That is the brief. What a term of using it surfaced:
 
 - [x] Stage 13 — controls and focus: real hit targets, drawn icons, keyboard fixes
 - [x] Stage 14 — a sample course, loadable from the home screen
@@ -64,6 +66,7 @@ That is the staged build finished. Work continues past it, against a plan of its
 - [x] Stage 20 — move an item to another collection
 - [x] Stage 21 — every write through one funnel, and every failure reported
 - [x] Stage 22 — a session change list, with undo and redo per change
+- [x] Stage 23 — `Ctrl+K` reaches everything in the course
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
@@ -81,6 +84,12 @@ Every text field takes Markdown, has a Preview toggle, and carries a small row o
 buttons — bold, italic, code, list, quote, link, table — for the syntax nobody remembers.
 They type the same characters you would, into the same box; ignore them and write it by hand
 if you prefer.
+
+`Ctrl+K` opens a search box over whatever screen you are on, reaching every collection,
+question, rubric and outcome in the course, the seven screens in the sidebar, and a short
+list of commands. Letters in order are enough — `u1t` finds "Unit 1 Test" — and word starts
+count for more than letters caught mid-word, so typing initials works. Arrow keys move,
+Enter opens, Escape closes and returns your cursor to where it was.
 
 **Changes** in the sidebar lists what this session has written, with **Undo** beside each
 one and `Ctrl+Z` from any screen — except while the cursor is in a text box, where `Ctrl+Z`
@@ -127,8 +136,9 @@ worked out, and what is deliberately absent. It is prerendered and precached, so
 offline too. There is a link to it on the home screen and at the foot of every course
 sidebar.
 
-Not built yet, the last item in the brief's UI expectations: the Ctrl/Cmd+K command
-palette.
+That is everything the brief asked for, plus the eleven stages a term of real use added
+after it. What is deliberately still absent is listed in the guide's last section and has
+not changed: no grading, no students, no delivery, no `.docx`, no LMS formats, no sync.
 
 Architecture notes and the invariants that matter are in [CLAUDE.md](CLAUDE.md).
 

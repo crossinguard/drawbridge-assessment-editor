@@ -40,6 +40,19 @@ class ReviewStore {
     await this.reload();
   }
 
+  /**
+   * Re-reads for a given vault, past the guard in `load`.
+   *
+   * `load` returns early for the vault it is already showing, which is right for
+   * arriving at a review screen and wrong for the command palette — that opens over
+   * whatever screen you are on, having possibly not been opened since you last edited
+   * something, and a palette offering a collection you deleted is worse than a slow one.
+   */
+  async refresh(vaultId: string): Promise<void> {
+    this.vaultId = vaultId;
+    await this.reload();
+  }
+
   async reload(): Promise<void> {
     if (this.status !== 'ready') this.status = 'loading';
     try {

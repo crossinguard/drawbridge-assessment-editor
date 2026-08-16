@@ -7,8 +7,8 @@
     plan — which is the only reason it can name a button and be right.
 
     Two rules for editing it. Say what the app does, not what it ought to do: the
-    things deliberately missing (a command palette, promoting a part out of its
-    group) are listed as missing, because a guide that implies otherwise is worse
+    things deliberately missing (promoting a part out of its group, undo across a
+    reload) are listed as missing, because a guide that implies otherwise is worse
     than no guide when somebody is deciding whether it is safe to click delete.
     And keep the reasoning: most of what confuses people here — a criterion worth its
     best level, a blank points field meaning "not stated" — are decisions, not
@@ -27,6 +27,7 @@
     { id: 'quickstart', title: 'Quickstart' },
     { id: 'saving', title: 'Saving, and where your work lives' },
     { id: 'undo', title: 'Undo, and the change list' },
+    { id: 'palette', title: 'Finding things — Ctrl+K' },
     { id: 'outcomes', title: 'Outcomes' },
     { id: 'collections', title: 'Collections and sections' },
     { id: 'kinds', title: 'The eight item kinds' },
@@ -292,6 +293,42 @@
           thing.</strong> That is a list you write yourself, describing how a question has
           changed over terms; it travels in the bundle and nothing in the app writes to it.
           It is not a record of your edits and undo does not read it.
+        </p>
+      </section>
+
+      <!-- ------------------------------------------------------------------ -->
+      <section id="palette" class="flex flex-col gap-3">
+        <h2 class="text-lg font-semibold tracking-tight">Finding things — Ctrl+K</h2>
+        <p class="max-w-prose text-sm text-text-muted">
+          <span class="font-mono text-xs">Ctrl+K</span> (<span class="font-mono text-xs"
+            >Cmd+K</span
+          > on a Mac) opens a search box over whatever screen you are on. It reaches every
+          collection, question, rubric and outcome in the course, the seven screens in the
+          sidebar, and a short list of things to do. Arrow keys move,
+          <span class="font-mono text-xs">Enter</span> opens,
+          <span class="font-mono text-xs">Esc</span> closes and puts your cursor back where
+          it was.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">You do not have to type it exactly.</strong>
+          Letters in order are enough, so
+          <span class="font-mono text-xs">u1t</span> finds “Unit 1 Test” and
+          <span class="font-mono text-xs">spread</span> finds both the outcome about spread
+          and the question that asks for it. Whole words and the starts of words count for
+          more than letters caught mid-word, which is why typing the initials of a long
+          title usually works.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">A question opens its collection</strong>,
+          not the question on its own — there is no address for a single item, and the
+          palette does not invent one. Parts inside a group are listed and behave the same
+          way.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          The list is re-read every time you open it, so it never offers something you have
+          just deleted. Commands are deliberately few: undo, redo, export, and the guide.
+          Everything else in Drawbridge is a screen, and a palette entry that duplicated a
+          button would be one more thing to keep in step with it.
         </p>
       </section>
 
@@ -756,8 +793,11 @@
             <em>course</em> is final however recently you did it.
           </li>
           <li>
-            <strong class="font-medium text-text">No command palette</strong>, and no shortcuts
-            outside the outcome tree and <span class="font-mono text-xs">Ctrl+Z</span>.
+            <strong class="font-medium text-text">Few shortcuts.</strong>
+            <span class="font-mono text-xs">Ctrl+K</span>,
+            <span class="font-mono text-xs">Ctrl+Z</span> and the outcome tree's
+            <span class="font-mono text-xs">Alt</span> keys are all of them. There is no way to
+            rebind any of it.
           </li>
           <li>
             <strong class="font-medium text-text">No way to promote a part out of its

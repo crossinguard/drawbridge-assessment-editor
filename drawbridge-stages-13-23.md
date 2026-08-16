@@ -5,9 +5,13 @@ The staged build in [drawbridge-redux-plan.md](drawbridge-redux-plan.md) finishe
 stage is independently shippable, ends with `pnpm check` and `pnpm test` clean plus a browser
 check, and lands as one commit whose message explains *why*.
 
-**Read this file before starting a stage.** It lives in the repo precisely because it did not
-at first, and a stage got built from a one-line summary in CLAUDE.md instead. That worked out,
-but only because the one-line summary happened to be right.
+**Every stage in this file is now built.** What follows is therefore a record rather than a
+plan: each entry says what shipped, where the plan was wrong, and what only a browser could
+have found. Read the entry before touching the thing it describes.
+
+It lives in the repo precisely because it did not at first, and a stage got built from a
+one-line summary in CLAUDE.md instead. That worked out, but only because the one-line summary
+happened to be right.
 
 ## Status
 
@@ -23,7 +27,7 @@ but only because the one-line summary happened to be right.
 | ✅ | 20 | Move items between collections | — |
 | ✅ | 21 | The write funnel — pure refactor, no new UI | — |
 | ✅ | 22 | Session journal — undo, redo, the staging area | — |
-| | 23 | Command palette | — |
+| ✅ | 23 | Command palette | — |
 
 `SCHEMA_VERSION` reached **3 at stage 16** and does not move again. The contrast between
 stage 16 (arithmetic changes, bump) and stage 17 (chrome changes, no bump) is the clearest
@@ -287,30 +291,55 @@ run offer undoing two edits to the same record in the right order; the ownership
 declining to strand a question and then allowing the same undo once the run took the
 question first; and `Ctrl+Z` inside a textarea leaving the journal alone.
 
----
+### Stage 23 — Command palette
 
-## Stage 23 — Command palette
+`src/lib/search.ts` (pure), `components/CommandPalette.svelte`, mounted in the vault layout
+and opened with `Ctrl/Cmd+K`. Sources the existing nav array, `review.snapshot` and a small
+command registry, exactly as planned. The accessibility contract holds and was driven by
+keyboard alone: `role="dialog"`, `aria-modal`, focus trapped across the two tabbable
+elements, `aria-activedescendant` tracking the active row, Escape closing, focus restored to
+the element that had it.
 
-**Delivers** `Ctrl/Cmd+K` reaching every collection, item, rubric, outcome and command.
+**Matching is two passes, and the plan's "scored subsequence match" needed the second one.**
+Forward-greedy answers whether it matches and finds the earliest end; on its own it aligns
+every character as far left as possible, so "spread" against "Describe the spread"
+highlighted the `s` of "Describe" and then "pread". The backward pass re-walks from that end
+taking the LAST position for each character, which lands the whole run on the word somebody
+typed. The browser found this by looking wrong, not by failing.
 
-Honest assessment: the lowest-value item on the list for one user who wrote the app, and the
-highest-risk for accessibility if done casually. It is cheap now — `review.svelte.ts` is
-already a whole-vault read and `linkFor` already resolves an entity to its screen.
+**An acronym across word starts outscores a leading run**, and a test says so, because it
+looks like a bug for a second: "des" at "Data extraction summary" beats "des" at "Describing
+data". Typing initials is how a palette gets used.
 
-New `src/lib/search.ts` — `rank(query, candidates)`, a scored subsequence match, pure and
-dependency-free. `CommandPalette.svelte` mounted in the vault layout, sourcing the existing
-`nav` array, `review.snapshot`, and a command registry.
+**Two additions the plan did not name.** `review.refresh(vaultId)`, past `load`'s guard, so
+the palette never offers a collection deleted a minute ago — the same shape as the store
+refreshes stage 22 added. And `segments()` beside `rank()`, so highlighting is string
+arithmetic with a test rather than an off-by-one nobody would catch by looking.
 
-Non-negotiable and the reason this is last: `role="dialog"`, `aria-modal`, a focus trap,
-`aria-activedescendant`, Escape closes, focus restored on close.
+**Verification note, and it is the fifth entry on CLAUDE.md's browser-found list.** The
+keydown handler was bound on the backdrop AND the dialog. Focus is trapped inside the
+dialog, so every key already bubbled through it and each keystroke ran twice: one press of
+ArrowDown moved the selection two rows. Nothing errors, nothing logs, and it reads as a
+twitchy trackpad. Also caught by driving it: `aria-controls` pointing at a listbox that is
+not rendered when nothing matches — a dangling reference assistive technology cannot
+resolve, now removed alongside `aria-expanded` and `aria-activedescendant`.
+
+**Two of my own test premises were wrong before the code was.** Both were comparisons —
+"this label should outscore that one" — written from intuition and contradicted by the
+arithmetic. The scorer was right both times. Comparison tests over a scoring function need
+the numbers worked out first, or they pin an opinion rather than a behaviour.
 
 ---
 
 ## Cross-cutting
 
-**`/help` is edited in most of these stages.** It names buttons and goes stale the moment a
-screen changes. Three stages *remove* lines from `#missing`: 20, 22, 23. Budget for it per
-stage — a cleanup pass at the end is how the guide gets rewritten from memory.
+These held across the eleven stages and are the ones to expect again.
+
+**`/help` was edited in most of them.** It names buttons and goes stale the moment a screen
+changes. Three stages *removed* lines from `#missing` — 20, 22 and 23 — and stage 22 also
+had to correct three delete confirmations that said "This cannot be undone" and no longer
+could. Budget for it per change; a cleanup pass at the end is how the guide gets rewritten
+from memory.
 
 **`remap.ts` is the file that gets forgotten.** It broke in stage 15 for a field added in the
 same commit, two lines below a comment warning about it, with every test passing. Stages 16,
@@ -318,7 +347,10 @@ same commit, two lines below a comment warning about it, with every test passing
 
 **Never put literal control characters in source.** `architecture.test.ts` guards it.
 
-## Verification, per stage
+## Verification, per change
+
+Unchanged, and it earned every line: five silent bugs were found by step 3 and none by the
+suite.
 
 1. `pnpm check` and `pnpm test` clean. They are the only gates.
 2. `pnpm build && pnpm preview`. **Unregister any service worker first** — a stale one serves

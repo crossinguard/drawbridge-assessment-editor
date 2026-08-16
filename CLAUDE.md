@@ -105,6 +105,8 @@ src/lib/
   stores/     Svelte runes tying the above to the UI. Every WRITE goes through
               writer.svelte.ts; reads call the repository directly. journal.svelte.ts
               is the log the funnel files into; undo.svelte.ts performs a flip.
+  search.ts   Scored subsequence matching for the command palette. Knows nothing
+              about assessments, which is why it is not in domain/.
   components/ UI. Reads stores, calls stores, renders domain — never the repository.
 src/routes/   SvelteKit routes.
 ```
@@ -259,6 +261,45 @@ ever refuse.
 **Undo's own writes carry `journal: false`.** Otherwise each one adds an entry whose undo is
 the thing just undone, and the list grows a rung every time somebody changes their mind.
 Redo is not a second stack: the entry stays in place and its `state` flips.
+
+### The command palette
+
+**`src/lib/search.ts` is generic and knows nothing about assessments**, which is why it is
+not in `domain/` — it would rank filenames just as happily. The component is a list and a
+keyboard; the judgement is all in `score()`, and that is what the tests cover.
+
+**Matching is two passes, and the second one is not optional.** Forward-greedy answers
+"does this match" and finds the earliest end. On its own it aligns every character as far
+LEFT as it can, so "spread" against "Describe the spread" highlights the `s` of "Describe"
+and then "pread" — a highlight scattered over two words with the obvious one half-skipped.
+The backward pass re-walks from that end taking the LAST position for each character,
+which finds a contiguous run whenever one exists and scores it as the run it is.
+
+**An acronym across word starts outscores a leading run, on purpose.** "des" at "Data
+extraction summary" beats "des" at "Describing data". It looks wrong for a second and it is
+what anybody who has used a palette expects — typing initials is how you reach a long
+title, and the other ranking would make that the worst way to do it.
+
+**`aria-controls`, `aria-expanded` and `aria-activedescendant` go away together.** The
+listbox is not rendered when nothing matches, and an `aria-controls` pointing at an id that
+is not in the document is a dangling reference assistive technology cannot resolve.
+
+**The keydown handler is on the dialog ONLY, never also on the backdrop.** Focus is trapped
+inside the dialog, so every key already bubbles through it — a handler on both ran each
+keystroke twice and one press of ArrowDown moved the selection two rows. It reads as a
+twitchy trackpad rather than a bug, which is exactly how it survived to a browser check.
+
+**`review.refresh(vaultId)` exists for this and goes past `load`'s guard.** The palette
+opens over whatever screen you are on, possibly not having been opened since the last edit;
+a snapshot that held still would offer a collection deleted a minute ago.
+
+**A question opens its COLLECTION.** There is no URL for a single item and the palette does
+not invent one — that would be a second way to address an item for every screen and the
+bundle to keep in step with.
+
+**Commands are deliberately few** — undo, redo, export, the guide. Everything else here is
+a screen, and a palette entry duplicating a button is one more place for the two to
+disagree. The undo pair name what they would undo, because "Undo" alone is a question.
 
 ### Store and UI invariants
 
@@ -747,10 +788,13 @@ screen said one thing and storage held another:
 - The journal held its entries in plain `$state`, so every before-image came back out as a
   Proxy and the first undo threw `DataCloneError`. The whole suite passed, and still would:
   neither `fake-indexeddb` nor Node's `structuredClone` rejects a Svelte proxy.
+- The command palette bound its keydown handler on both the backdrop and the dialog, so every
+  keystroke ran twice and one ArrowDown moved the selection two rows. Nothing errored and
+  nothing logged; it reads as a twitchy trackpad.
 
-All four were silent and all four were invisible to `pnpm test`. Tests pin the first three
-— the fourth cannot be pinned in this environment, which was checked rather than assumed.
-The browser found every one of them first.
+All five were silent and all five were invisible to `pnpm test`. Tests pin the first three
+— the fourth cannot be pinned in this environment, which was checked rather than assumed,
+and the fifth only exists in a real event loop. The browser found every one of them first.
 
 **Unregister the service worker before you verify.** A worker from the previous build serves
 the previous bundle, and working code looks broken — a whole debugging hour went to that in
@@ -779,6 +823,11 @@ build such patterns with a script and verify the stored bytes.
 
 ## Where things stand
 
+**Both plans are finished.** Stages 0 to 23 are built, verified and committed; there is no
+"next stage". Work from here is whatever a term of using it turns up, and the right thing
+to do with a new idea is write down the reasoning first — that habit is what every section
+above is made of.
+
 **The staged build in the brief is finished — stages 0 to 12.** Scaffold, domain,
 repository, vaults and settings, outcomes, items, export/import, rubrics, all eight item
 kinds, coverage and validation, Markdown and CSV in the bundle, the PWA, and the `/help`
@@ -790,19 +839,18 @@ what a term of real use surfaced: controls and focus (13), a loadable sample cou
 per-criterion rubric points (15), shared rubric tails (16), collection-kind capabilities and
 the task/item split (17), a Markdown toolbar (18), cloning a course (19), moving items between
 collections (20), a write funnel (21), the session journal and undo (22), and a command
-palette (23). **Stages 13 to 22 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
+palette (23). **All of them are done — the plan is finished.** `SCHEMA_VERSION` reached 3 at stage 16 and does
 not bump again — stage 17 added fields an older reader ignores to show a busier editor, which
 is exactly the case that is NOT a bump. That file carries the per-stage detail — schema shapes, the decisions already made,
 and what each stage is most likely to get wrong.
 
-Deliberately not built yet:
+Not built, each for a reason:
 
 | | |
 | --- | --- |
-| Command palette | Brief §5, `Ctrl/Cmd+K`. Cross-cutting; the last of the brief's UI expectations. |
-| Markdown sanitiser | Decided: DOMPurify with an allow-list. Not named by the brief; see `src/lib/markdown.ts`. |
 | Netlify deploy | The user's action, not the agent's. Verify the PWA locally instead. |
 | Update checks in a long-lived tab | The app only looks for a new build on load. A tab left open for a week will not notice one until it is reloaded. A throttled check on `visibilitychange` is the obvious addition; it was not asked for. |
+| A deep link to a single item | There is no URL for one question — the palette lands on its collection instead. Adding one means a second way to address an item, for every screen and the bundle to keep in step with. |
 
 ## Stack notes and traps
 
