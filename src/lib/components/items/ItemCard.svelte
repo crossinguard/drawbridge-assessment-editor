@@ -237,7 +237,8 @@
         title="Delete"
         aria-label="Delete item"
         onclick={() => {
-          if (confirm('Delete this item? This cannot be undone.')) void itemStore.remove(item.id);
+          if (confirm('Delete this item? Undo can bring it back while this tab is open.'))
+            void itemStore.remove(item.id);
         }}
       />
     </div>

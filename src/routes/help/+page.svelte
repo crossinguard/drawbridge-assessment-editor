@@ -7,9 +7,9 @@
     plan — which is the only reason it can name a button and be right.
 
     Two rules for editing it. Say what the app does, not what it ought to do: the
-    things deliberately missing (undo, a command palette, moving an item between
-    collections) are listed as missing, because a guide that implies otherwise is
-    worse than no guide when somebody is deciding whether it is safe to click delete.
+    things deliberately missing (a command palette, promoting a part out of its
+    group) are listed as missing, because a guide that implies otherwise is worse
+    than no guide when somebody is deciding whether it is safe to click delete.
     And keep the reasoning: most of what confuses people here — a criterion worth its
     best level, a blank points field meaning "not stated" — are decisions, not
     accidents, and the explanation is the useful part.
@@ -26,6 +26,7 @@
   const sections: Entry[] = [
     { id: 'quickstart', title: 'Quickstart' },
     { id: 'saving', title: 'Saving, and where your work lives' },
+    { id: 'undo', title: 'Undo, and the change list' },
     { id: 'outcomes', title: 'Outcomes' },
     { id: 'collections', title: 'Collections and sections' },
     { id: 'kinds', title: 'The eight item kinds' },
@@ -223,6 +224,74 @@
           the home screen says so plainly, and that means a browser short of disk space
           is entitled to clear a term's work without warning. Exporting is the whole
           defence.
+        </p>
+      </section>
+
+      <!-- ------------------------------------------------------------------ -->
+      <section id="undo" class="flex flex-col gap-3">
+        <h2 class="text-lg font-semibold tracking-tight">Undo, and the change list</h2>
+        <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">Changes</strong> in the sidebar lists what
+          this session has written, newest first, with an
+          <strong class="font-medium text-text">Undo</strong> beside each one.
+          <span class="font-mono text-xs">Ctrl+Z</span> undoes the newest from any screen and
+          <span class="font-mono text-xs">Ctrl+Shift+Z</span> puts it back. Undoing something
+          does not remove it from the list — it is marked
+          <span class="font-mono text-xs">undone</span> and offers
+          <strong class="font-medium text-text">Redo</strong> instead, so changing your mind
+          twice costs nothing.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">While the cursor is in a text box,
+          <span class="font-mono text-xs">Ctrl+Z</span> is the browser's</strong> and works a
+          word at a time, which is finer than anything here could offer. Click out of the
+          field first if you meant to undo the last thing you did to the course.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">The list is held in memory and is empty
+          after a reload.</strong> It is a way to take back something you just did, not a
+          history of the course — for that, export a bundle. The last 100 changes are kept
+          and older ones drop off, which the screen says when it has dropped any.
+        </p>
+
+        <h3 class="mt-1 text-sm font-semibold">When it refuses</h3>
+        <p class="max-w-prose text-sm text-text-muted">
+          Undo will not quietly discard newer work, so it declines in three cases and says
+          which:
+        </p>
+        <ul class="flex max-w-prose list-disc flex-col gap-1.5 ps-5 text-sm text-text-muted">
+          <li>
+            <strong class="font-medium text-text">Something later touched the same
+            records.</strong> Undoing out of order would throw that away, so the row offers
+            <strong class="font-medium text-text">Undo everything back to here</strong>
+            instead, with the number of changes it would take.
+          </li>
+          <li>
+            <strong class="font-medium text-text">The record has been written since</strong>
+            by something the list did not see — an imported bundle, or the same course open
+            in another tab.
+          </li>
+          <li>
+            <strong class="font-medium text-text">It would strand something.</strong> Undoing
+            the creation of a collection you have since written questions into would leave
+            those questions in no collection, where no screen could reach them. Undo the
+            later changes first.
+          </li>
+        </ul>
+
+        <h3 class="mt-1 text-sm font-semibold">What is never in the list</h3>
+        <p class="max-w-prose text-sm text-text-muted">
+          Creating a course, deleting a course, importing a bundle and loading the sample.
+          Each writes or removes everything at once, so there is no cheap before-and-after
+          to hold — and an undo that offered to put a course back and then could not would
+          be worse than one that says plainly that it cannot. Deleting a course still asks
+          you to type its code.
+        </p>
+        <p class="max-w-prose text-sm text-text-muted">
+          <strong class="font-medium text-text">An item's revision log is a different
+          thing.</strong> That is a list you write yourself, describing how a question has
+          changed over terms; it travels in the bundle and nothing in the app writes to it.
+          It is not a record of your edits and undo does not read it.
         </p>
       </section>
 
@@ -681,13 +750,14 @@
         </p>
         <ul class="flex max-w-prose list-disc flex-col gap-1.5 ps-5 text-sm text-text-muted">
           <li>
-            <strong class="font-medium text-text">No undo.</strong> Deleting an item, an
-            outcome, a criterion or a course is final, and each one asks first. Text fields have
-            their own undo while the cursor is in them; nothing else does.
+            <strong class="font-medium text-text">No undo across a reload.</strong> The change
+            list is this session only — see <a class="text-accent underline" href="#undo">Undo,
+            and the change list</a> for what it does and does not cover. Deleting a
+            <em>course</em> is final however recently you did it.
           </li>
           <li>
             <strong class="font-medium text-text">No command palette</strong>, and no shortcuts
-            outside the outcome tree.
+            outside the outcome tree and <span class="font-mono text-xs">Ctrl+Z</span>.
           </li>
           <li>
             <strong class="font-medium text-text">No way to promote a part out of its

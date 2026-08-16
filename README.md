@@ -63,6 +63,7 @@ That is the staged build finished. Work continues past it, against a plan of its
 - [x] Stage 19 — copy a course into next term's, and delete from the home list
 - [x] Stage 20 — move an item to another collection
 - [x] Stage 21 — every write through one funnel, and every failure reported
+- [x] Stage 22 — a session change list, with undo and redo per change
 
 You can create courses, configure them, build an outcome hierarchy, and author
 choice / multiple-response / true-false / short-answer items with keys, per-option
@@ -80,6 +81,15 @@ Every text field takes Markdown, has a Preview toggle, and carries a small row o
 buttons — bold, italic, code, list, quote, link, table — for the syntax nobody remembers.
 They type the same characters you would, into the same box; ignore them and write it by hand
 if you prefer.
+
+**Changes** in the sidebar lists what this session has written, with **Undo** beside each
+one and `Ctrl+Z` from any screen — except while the cursor is in a text box, where `Ctrl+Z`
+stays the browser's. Undone changes stay in the list and offer **Redo**. It is held in
+memory and is empty after a reload: a way to take back what you just did, not a history of
+the course. It refuses rather than quietly discarding newer work — when something later
+touched the same records it offers to undo the run back to that point instead, and it will
+not strand questions in a collection it is about to remove. Deleting a course, importing a
+bundle and loading the sample are not in it, and the guide says so.
 
 **Move to…** in an item's header hands it to another collection — one item, no copy left
 behind. Its section and its stimulus link stay behind with the collection that owned them;
@@ -117,8 +127,8 @@ worked out, and what is deliberately absent. It is prerendered and precached, so
 offline too. There is a link to it on the home screen and at the foot of every course
 sidebar.
 
-Not built yet, both listed in the brief's UI expectations: undo/redo across structured
-edits, and the Ctrl/Cmd+K command palette.
+Not built yet, the last item in the brief's UI expectations: the Ctrl/Cmd+K command
+palette.
 
 Architecture notes and the invariants that matter are in [CLAUDE.md](CLAUDE.md).
 

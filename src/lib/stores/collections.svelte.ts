@@ -51,6 +51,23 @@ class CollectionsStore {
     }
   }
 
+  /**
+   * Re-reads the list and the open collection, past the guards in `load` and
+   * `openCollection`. For undo — see the note on `activeVault.refresh`.
+   */
+  async refresh(): Promise<void> {
+    if (this.vaultId === '') return;
+    this.items = await repository.collections.listByVault(this.vaultId);
+
+    const openId = this.open?.id;
+    if (openId === undefined) return;
+
+    const collection = await repository.collections.get(openId);
+    this.saver.cancel();
+    this.open = collection ?? null;
+    if (collection) this.saver.accept(collection);
+  }
+
   async openCollection(collectionId: string): Promise<void> {
     if (this.open?.id === collectionId) return;
     const collection = await repository.collections.get(collectionId);

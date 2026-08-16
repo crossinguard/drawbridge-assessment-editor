@@ -71,9 +71,25 @@ class RubricsStore {
     }
   }
 
-  /** Reloads without blanking the screen. See the note in vaults.svelte.ts. */
+  /**
+   * Reloads without blanking the screen, and past the guard in `openRubric`.
+   *
+   * For undo, which rewrites records under a grid that is already showing them. The
+   * `accept` matters more here than anywhere: the grid editor queues on every
+   * keystroke, so a restored rubric arriving with a stale baseline would be written
+   * back over the restore by the next character typed.
+   */
   async refresh(): Promise<void> {
+    if (this.vaultId === '') return;
     this.items = await repository.rubrics.listByVault(this.vaultId);
+
+    const openId = this.open?.id;
+    if (openId === undefined) return;
+
+    const rubric = await repository.rubrics.get(openId);
+    this.saver.cancel();
+    this.open = rubric ?? null;
+    if (rubric) this.saver.accept(rubric);
   }
 
   async openRubric(rubricId: string): Promise<void> {

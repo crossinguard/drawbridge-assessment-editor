@@ -2,8 +2,10 @@ import { repository } from '$lib/repo';
 import { newOutcome } from '$lib/domain/defaults';
 import { ancestorsOf, childrenOf, descendantsOf } from '$lib/domain/outcomes';
 import { nowIso } from '$lib/domain/ids';
+import type { Change } from '$lib/domain/journal';
 import type { Outcome } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
+import { journal } from './journal.svelte';
 import { plain } from './plain.svelte';
 import { writer } from './writer.svelte';
 import { describe, type LoadStatus } from './vaults.svelte';
@@ -68,6 +70,22 @@ class OutcomesStore {
       this.error = describe(cause);
       this.status = 'error';
     }
+  }
+
+  /**
+   * Re-reads the tree, past the guard in `load`. For undo — see `activeVault.refresh`.
+   *
+   * The saver is emptied rather than accepted: it queues an ARRAY of dirty records, so
+   * there is no single value to hand it as a baseline. `accept([])` is a baseline no
+   * real queue can match, which is the honest reading of "nothing here is outstanding
+   * any more" — the records those edits described have just been overwritten.
+   */
+  async refresh(): Promise<void> {
+    if (this.vaultId === '') return;
+    this.items = await repository.outcomes.listByVault(this.vaultId);
+    this.#dirty.clear();
+    this.saver.cancel();
+    this.saver.accept([]);
   }
 
   siblingsOf(parentId: string | null): Outcome[] {
@@ -146,7 +164,7 @@ class OutcomesStore {
     reordered.splice(afterIndex + 1, 0, outcome);
 
     this.items = [...this.items, outcome];
-    await this.#persistOrder('Added an outcome', reordered);
+    await this.#persistOrder('Added an outcome', [reordered]);
     return outcome;
   }
 
@@ -156,6 +174,15 @@ class OutcomesStore {
     const doomed = [id, ...this.descendantsOf(id).map((outcome) => outcome.id)];
     const parentId = this.items.find((outcome) => outcome.id === id)?.parentId ?? null;
 
+    /*
+      One journal entry for the whole deletion — the branch AND the renumbering of
+      what it left behind. A branch of four outcomes is five writes, and five entries
+      would mean pressing undo five times and watching a subtree reassemble itself
+      one row at a time, in the wrong order, with the siblings misnumbered until the
+      last one.
+    */
+    const changes: Change[] = [];
+
     try {
       for (const doomedId of doomed) {
         // Drop it from the pending set first, or a queued field save would try to
@@ -164,16 +191,19 @@ class OutcomesStore {
         await writer.remove('outcome', doomedId, {
           label: 'Deleted an outcome',
           vaultId: this.vaultId,
-          report: this.saver
+          report: this.saver,
+          into: changes
         });
       }
       this.items = this.items.filter((outcome) => !doomed.includes(outcome.id));
       // Drop the deleted records from anything still queued, or the pending write
       // puts them back.
       this.#requeue();
-      await this.#persistOrder('Deleted an outcome', this.siblingsOf(parentId));
+      await this.#persistOrder('Deleted an outcome', [this.siblingsOf(parentId)], changes);
     } catch (cause) {
       this.saver.markFailed(cause);
+    } finally {
+      journal.record('Deleted an outcome', this.vaultId, changes);
     }
   }
 
@@ -189,7 +219,7 @@ class OutcomesStore {
     const reordered = [...siblings];
     const [moved] = reordered.splice(index, 1);
     if (moved) reordered.splice(target, 0, moved);
-    await this.#persistOrder('Reordered an outcome', reordered);
+    await this.#persistOrder('Reordered an outcome', [reordered]);
   }
 
   /** Makes the outcome a child of the sibling immediately above it. */
@@ -208,7 +238,7 @@ class OutcomesStore {
     outcome.parentId = newParent.id;
     const newSiblings = [...this.siblingsOf(newParent.id).filter((s) => s.id !== id), outcome];
 
-    await this.#persistOrder('Indented an outcome', oldSiblings, newSiblings);
+    await this.#persistOrder('Indented an outcome', [oldSiblings, newSiblings]);
   }
 
   /** Makes the outcome a sibling of its parent, immediately after it. */
@@ -228,7 +258,7 @@ class OutcomesStore {
     const newSiblings = [...uncles];
     newSiblings.splice(parentIndex + 1, 0, outcome);
 
-    await this.#persistOrder('Outdented an outcome', oldSiblings, newSiblings);
+    await this.#persistOrder('Outdented an outcome', [oldSiblings, newSiblings]);
   }
 
   /**
@@ -237,8 +267,11 @@ class OutcomesStore {
    * Everything structural funnels through here so ordering is repaired in one place.
    * Imported data with duplicate or sparse orders gets tidied the first time anything
    * in that group is touched.
+   *
+   * `into` collects this write's before-images for a caller that is making several,
+   * so the user's one action becomes one journal entry. Omitted, the write is its own.
    */
-  async #persistOrder(label: string, ...groups: Outcome[][]): Promise<void> {
+  async #persistOrder(label: string, groups: Outcome[][], into?: Change[]): Promise<void> {
     const changed: Outcome[] = [];
     for (const group of groups) {
       group.forEach((outcome, index) => {
@@ -255,7 +288,7 @@ class OutcomesStore {
       await writer.putMany(
         'outcome',
         changed.map((outcome) => plain({ ...outcome, updatedAt: nowIso() })),
-        { label, vaultId: this.vaultId, report: this.saver }
+        { label, vaultId: this.vaultId, report: this.saver, ...(into ? { into } : {}) }
       );
     } catch {
       // Already reported by the funnel.

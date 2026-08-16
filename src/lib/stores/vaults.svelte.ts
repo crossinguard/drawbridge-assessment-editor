@@ -4,6 +4,7 @@ import { newVault } from '$lib/domain/defaults';
 import { nowIso } from '$lib/domain/ids';
 import type { Vault } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
+import { journal } from './journal.svelte';
 import { WriteStatus, writer } from './writer.svelte';
 import { plain } from './plain.svelte';
 
@@ -54,12 +55,21 @@ class VaultListStore {
     }
   }
 
+  /**
+   * `journal: false`, and it is the one entry that would have been dishonest.
+   *
+   * Creating a course happens on the home screen, where there is no change list — and
+   * undoing it would be deleting a course, which is the operation the journal already
+   * says it cannot perform. Recording it would put a row in the list of the course it
+   * created, offering exactly that.
+   */
   async create(input: { name: string; code: string; term?: string }): Promise<Vault> {
     const vault = newVault(input);
     await writer.put('vault', plain(vault), {
       label: 'Created a course',
       vaultId: vault.id,
-      report: this.writes
+      report: this.writes,
+      journal: false
     });
     await this.load();
     return vault;
@@ -87,6 +97,9 @@ class VaultListStore {
       { label: 'Deleted a course', vaultId: id, report: this.writes, journal: false },
       () => repository.deleteVault(id)
     );
+    // Every entry naming one of its records is now an undo onto nothing. Left in the
+    // list they could only ever refuse, which reads as the feature being broken.
+    journal.forget(id);
     await this.load();
   }
 

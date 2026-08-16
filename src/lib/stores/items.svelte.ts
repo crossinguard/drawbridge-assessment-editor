@@ -2,8 +2,10 @@ import { repository } from '$lib/repo';
 import { newItem } from '$lib/domain/defaults';
 import { nowIso } from '$lib/domain/ids';
 import { duplicateItem, itemsInSection, relocateItem } from '$lib/domain/items';
+import type { Change } from '$lib/domain/journal';
 import type { Item, ItemKind } from '$lib/domain/schema';
 import { Autosave } from './autosave.svelte';
+import { journal } from './journal.svelte';
 import { plain } from './plain.svelte';
 import { writer } from './writer.svelte';
 import { describe, type LoadStatus } from './vaults.svelte';
@@ -69,6 +71,18 @@ class ItemsStore {
     }
   }
 
+  /**
+   * Re-reads the open collection's items, past the guard in `load`. For undo — see
+   * the note on `activeVault.refresh`, and on `outcomes.refresh` for the empty accept.
+   */
+  async refresh(): Promise<void> {
+    if (this.collectionId === '') return;
+    this.items = await repository.items.listByCollection(this.collectionId);
+    this.#dirty.clear();
+    this.saver.cancel();
+    this.saver.accept([]);
+  }
+
   inSection(sectionId: string | undefined): Item[] {
     return itemsInSection(this.items, sectionId);
   }
@@ -129,7 +143,7 @@ class ItemsStore {
     reordered.splice(position + 1, 0, copy);
 
     this.items = [...this.items, copy];
-    await this.#renumber('Duplicated an item', reordered);
+    await this.#renumber('Duplicated an item', [reordered]);
     return copy;
   }
 
@@ -138,19 +152,30 @@ class ItemsStore {
     if (!item) return;
     const sectionId = item.sectionId ?? undefined;
 
+    /*
+      The removal and the renumbering of what is left are ONE journal entry. As two,
+      undoing the first would put the question back among siblings still numbered as
+      though it had gone — and undoing the renumber on its own would be an entry whose
+      only visible effect is that the numbers stop matching the list.
+    */
+    const changes: Change[] = [];
+
     try {
       this.#dirty.delete(id);
       await writer.remove('item', id, {
         label: 'Deleted an item',
         vaultId: this.vaultId,
-        report: this.saver
+        report: this.saver,
+        into: changes
       });
       this.items = this.items.filter((existing) => existing.id !== id);
       // Drop it from any pending write, or the debounce puts it straight back.
       this.#requeue();
-      await this.#renumber('Deleted an item', this.inSection(sectionId));
+      await this.#renumber('Deleted an item', [this.inSection(sectionId)], changes);
     } catch (cause) {
       this.saver.markFailed(cause);
+    } finally {
+      journal.record('Deleted an item', this.vaultId, changes);
     }
   }
 
@@ -166,7 +191,7 @@ class ItemsStore {
     const reordered = [...group];
     const [moved] = reordered.splice(index, 1);
     if (moved) reordered.splice(target, 0, moved);
-    await this.#renumber('Reordered an item', reordered);
+    await this.#renumber('Reordered an item', [reordered]);
   }
 
   /** Moves an item into another section, or out of all of them with `undefined`. */
@@ -182,7 +207,7 @@ class ItemsStore {
     else item.sectionId = sectionId;
 
     const arrivedIn = [...this.inSection(sectionId).filter((existing) => existing.id !== id), item];
-    await this.#renumber('Moved an item to another section', leftBehind, arrivedIn);
+    await this.#renumber('Moved an item to another section', [leftBehind, arrivedIn]);
   }
 
   /**
@@ -203,6 +228,8 @@ class ItemsStore {
     if (!item) return false;
 
     const from = item.sectionId ?? undefined;
+    // The arrival and the renumbering of the collection it left: one entry, one undo.
+    const changes: Change[] = [];
 
     try {
       /*
@@ -242,17 +269,24 @@ class ItemsStore {
       await writer.put('item', moved, {
         label: 'Moved an item to another collection',
         vaultId: this.vaultId,
-        report: this.saver
+        report: this.saver,
+        into: changes
       });
 
       this.items = this.items.filter((existing) => existing.id !== id);
       // Drop it from any pending write, or the debounce puts it straight back here.
       this.#requeue();
-      await this.#renumber('Moved an item to another collection', this.inSection(from));
+      await this.#renumber(
+        'Moved an item to another collection',
+        [this.inSection(from)],
+        changes
+      );
       return true;
     } catch (cause) {
       this.saver.markFailed(cause);
       return false;
+    } finally {
+      journal.record('Moved an item to another collection', this.vaultId, changes);
     }
   }
 
@@ -361,7 +395,7 @@ class ItemsStore {
   }
 
   /** Writes `order` as a dense 0..n-1 run over each supplied group. */
-  async #renumber(label: string, ...groups: Item[][]): Promise<void> {
+  async #renumber(label: string, groups: Item[][], into?: Change[]): Promise<void> {
     const changed: Item[] = [];
     for (const group of groups) {
       group.forEach((item, index) => {
@@ -369,7 +403,7 @@ class ItemsStore {
         changed.push(item);
       });
     }
-    await this.#write(changed, label);
+    await this.#write(changed, label, into);
   }
 
   /**
@@ -379,13 +413,13 @@ class ItemsStore {
    * through the shared one, so the `try`/`markSaved`/`markFailed` it used to spell out
    * now happens once, in `writer`, for every store.
    */
-  async #write(records: Item[], label: string): Promise<void> {
+  async #write(records: Item[], label: string, into?: Change[]): Promise<void> {
     if (records.length === 0) return;
     try {
       await writer.putMany(
         'item',
         records.map((item) => plain({ ...item, updatedAt: nowIso() })),
-        { label, vaultId: this.vaultId, report: this.saver }
+        { label, vaultId: this.vaultId, report: this.saver, ...(into ? { into } : {}) }
       );
     } catch {
       // Already reported by the funnel. Swallowed here because a structural edit is

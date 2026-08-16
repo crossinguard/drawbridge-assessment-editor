@@ -49,6 +49,23 @@ class ActiveVaultStore {
   }
 
   /**
+   * Re-reads the open vault, past the guard in `open`.
+   *
+   * For undo, which rewrites the record under a screen that is already showing it —
+   * `open` would see the same id and return without reading anything. The `accept` is
+   * what stops the settings effect noticing a new draft object and writing it straight
+   * back over the version just restored.
+   */
+  async refresh(): Promise<void> {
+    if (!this.draft) return;
+    const vault = await repository.vaults.get(this.draft.id);
+    if (!vault) return;
+    this.saver.cancel();
+    this.draft = vault;
+    this.saver.accept(vault);
+  }
+
+  /**
    * Queues the current draft for saving. Called from an `$effect` that reads the draft
    * deeply, so any nested config edit reaches storage without every editor component
    * having to remember to announce itself.

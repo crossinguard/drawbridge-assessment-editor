@@ -22,7 +22,7 @@ but only because the one-line summary happened to be right.
 | ✅ | 19 | Clone a course, and delete from the home list | — |
 | ✅ | 20 | Move items between collections | — |
 | ✅ | 21 | The write funnel — pure refactor, no new UI | — |
-| | 22 | Session journal — undo, redo, the staging area | — |
+| ✅ | 22 | Session journal — undo, redo, the staging area | — |
 | | 23 | Command palette | — |
 
 `SCHEMA_VERSION` reached **3 at stage 16** and does not move again. The contrast between
@@ -238,47 +238,54 @@ wedges the tab. The failure path is pinned in `writer.test.ts` against `fake-ind
 instead, reporter state and all; the browser is for confirming the refactor did not quietly
 stop something writing, which it did by exercising all nine paths and reading each back.
 
----
+### Stage 22 — Session journal, undo and redo
 
-## Stage 22 — Session journal, undo and redo
+`domain/journal.ts` (pure), `stores/journal.svelte.ts` (the log), `stores/undo.svelte.ts`
+(the flip), `/v/[vaultId]/changes`, and `Ctrl+Z` / `Ctrl+Shift+Z` in the vault layout.
+Shipped as planned, in memory, capped at 100 with the screen saying so.
 
-**Delivers** the staging area: a session change list with per-entry undo/redo, plus `Ctrl+Z`.
+**Three store modules, not one, and that is the shape to keep.** The funnel has to file
+changes into the log and the flip has to write through the funnel — one module doing both
+puts `writer.svelte.ts` and the journal in an import circle. Splitting the LOG (no
+repository, no writer) from the OPERATION (imports everything) removes it entirely.
 
-**In memory, not IndexedDB.** What changed *in a session*, taken literally. Persisting means a
-new table, extending `deleteVault`'s cascade, a decision about the bundle (it must not
-travel), and unbounded growth from whole-record before-images. Cap at ~100 entries, oldest
-dropped, and **say so in the UI**.
+**`intent.into` was not in the plan and the feature needs it.** Deleting an item is a
+removal AND a renumber; deleting an outcome is N removals AND a renumber. Recorded per
+write, those are two and N+1 entries, and undoing one of them leaves a state that never
+existed — the question back among siblings still numbered as though it had gone. The three
+call sites that need it are `items.remove`, `items.moveToCollection` and `outcomes.remove`.
 
-```ts
-// domain/journal.ts — pure
-interface Change { type: EntityType; id: string; before: unknown | null; after: unknown | null }
-interface JournalEntry { id; at; vaultId; label; changes: Change[]; state: 'applied' | 'reverted' }
-```
+**Removing a collection has to capture its items.** The repository cascades in one
+transaction, so a journal holding only the collection restores it empty and reports success.
 
-**Whole records, not field diffs.** A diff over a `looseObject` that promises to round-trip
-unknown keys is exactly where an unknown key gets lost.
+**Three delete confirmations said "This cannot be undone" and had to be corrected.** Item,
+outcome and collection. The course-delete block still says there is no undo, correctly. This
+is the `/help` staleness rule reaching UI strings — budget for it.
 
-Before-images are read from the repository inside the funnel immediately before the write —
-not from the store's in-memory copy, because several paths mutate in place *then* write, so
-the store's copy is already the after-image. Granularity comes free from the debounce.
+**A no-op filter cost an afternoon and is the reason there isn't one.** It dropped a change
+whose before and after shared an `updatedAt`, which is true of any two writes inside one
+millisecond — including creating a record and saving the first thing typed into it. Entries
+simply never appeared. The same millisecond-resolution caveat applies to the staleness check
+and is *not* reachable there, because the writes it guards against carry stamps from another
+machine; the reasoning is recorded beside `stampOf`.
 
-**Out-of-order revert is allowed only when no later applied entry touches any of the same
-record ids** — a set intersection over `changes[].id`. Conservative on purpose. When it
-refuses, offer "Undo everything back to here (3 changes)".
+**Verification note, and it is the fourth entry on CLAUDE.md's browser-found list.** The log
+held its entries in plain `$state`, which proxies deeply, so every before-image came back out
+as a Proxy and the first undo threw `DataCloneError` — the failure `plain()` exists to
+prevent, arriving from the one direction nothing watches: a value on its way OUT of a store.
+`$state.raw` fixes it. **It cannot be pinned by a test in this repo**, which was checked
+rather than assumed: `fake-indexeddb` clones by walking the object in JS, Node's own
+`structuredClone` accepts a Svelte proxy, and the proxy carries no symbol or tag to probe.
+A test asserting `structuredClone` does not throw was written, found to pass either way, and
+deleted — a test that claims a pin it does not have is worse than none.
 
-It must additionally refuse: a revert that would orphan a record; vault deletion and import
-(not journalled at all); and any revert where the stored record's `updatedAt` no longer
-matches the entry's `after.updatedAt`. Before applying, `await Autosave.flushAll()`, then
-apply, then reload the affected stores — their load guards will bite here.
-
-Redo is not a second stack: each entry carries `state`, reverting flips it, and a new entry
-clears nothing.
-
-`/help` gains an `#undo` section, and **must name `Item.log` as *not* this** — it is a
-user-authored revision log with no write path, and someone will reasonably assume otherwise.
-
-**Risk.** The pending-write race is the highest-probability, highest-cost failure and is
-invisible to a UI that says "Saved".
+**Also verified against IndexedDB rather than the screen:** an item delete restored with its
+options, key, points and outcome alignment and its siblings' original stamps; a four-outcome
+branch restored in one `Ctrl+Z` with parents and orders intact; a settings edit undone with
+the settings screen then mounting and NOT writing it back (the `accept` in `refresh`); the
+run offer undoing two edits to the same record in the right order; the ownership refusal
+declining to strand a question and then allowing the same undo once the run took the
+question first; and `Ctrl+Z` inside a textarea leaving the journal alone.
 
 ---
 

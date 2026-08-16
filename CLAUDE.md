@@ -103,7 +103,8 @@ src/lib/
               IndexedDB exists.
   export/     Bundle writer and reader: zip, JSON, Markdown, CSV. Depends on domain only.
   stores/     Svelte runes tying the above to the UI. Every WRITE goes through
-              writer.svelte.ts; reads call the repository directly.
+              writer.svelte.ts; reads call the repository directly. journal.svelte.ts
+              is the log the funnel files into; undo.svelte.ts performs a flip.
   components/ UI. Reads stores, calls stores, renders domain — never the repository.
 src/routes/   SvelteKit routes.
 ```
@@ -188,6 +189,76 @@ it cannot than to offer and fail.
 vault list is the case, and the home screen renders its error — separately from
 `vaultList.error`, which is a LOAD failure and replaces the list entirely. A rename that did
 not save should say so without taking the courses away.
+
+### The session journal
+
+**Three modules, and the split is what keeps them out of a circle.** `domain/journal.ts` is
+the pure rules; `stores/journal.svelte.ts` is the in-memory LOG and imports neither the
+repository nor the writer; `stores/undo.svelte.ts` performs a flip and imports everything.
+The funnel files changes into the log, so the log cannot know about the funnel.
+
+**`journal.entries` is `$state.raw`, and that is correctness rather than performance.**
+Plain `$state` proxies deeply, so every before-image came back out as a Proxy, and the
+first thing undo does with one is write it to IndexedDB — `DataCloneError`. This is the
+failure `plain()` exists to prevent, arriving from the direction nothing was watching: a
+value on its way OUT of a store. Neither `fake-indexeddb` nor Node's own `structuredClone`
+rejects a Svelte proxy and it carries no probe-able marker, so **no test in this repo can
+see it**; the browser found it on the first click. `undo` calls `plain()` at the write
+anyway.
+
+**Whole records, never field diffs.** A diff over a `looseObject` that promises to
+round-trip unknown keys is exactly where an unknown key gets dropped.
+
+**Before-images are read from STORAGE inside the funnel, immediately before the write.**
+Several store methods mutate the live record and then save it — `setSection` and `setKind`
+both do — so a journal built from the store's own copy would hold the after-image on both
+sides and undo would do nothing at all.
+
+**`intent.into` makes one user action one entry.** Deleting an item is a removal AND a
+renumber; deleting an outcome is N removals and a renumber. Passed an array, the funnel
+appends to it instead of recording, and the store calls `journal.record` once at the end.
+Without it, undo would need pressing twice and the state in between never existed.
+`items.remove`, `items.moveToCollection` and `outcomes.remove` are the three that need it.
+
+**Removing a collection captures its items too.** `repository.collections.remove` cascades
+in one transaction, so a journal holding only the collection would restore it empty and
+report success. Anything that adds a cascade has to extend `#removalImages`.
+
+**Staleness is judged on `updatedAt` alone.** A deep compare would report key-order
+differences that this codebase already knows to ignore, and a false refusal is still a
+refusal. The stamp is millisecond-resolution, so it cannot distinguish two versions written
+in the same millisecond — which is not reachable here, because the writes it guards against
+are the ones the journal did not see, and those carry stamps from another machine.
+
+**There is no no-op filter, and there was.** One that dropped a change whose before and
+after shared an `updatedAt` shipped for an afternoon and lost real entries: creating a
+record and saving the first thing typed into it lands both writes in the same millisecond.
+`stores/journal.test.ts` pins that such a change is still recorded.
+
+**Undo checks the WHOLE run before writing any of it.** `project()` plays the plan against
+storage and answers both questions in one pass — what conflicts, and what each record ends
+up as. Checking step by step would leave a half-applied run behind the first refusal, which
+is the one outcome an undo feature must never produce.
+
+**It refuses on ownership, not on reference.** An item whose collection is gone is
+unreachable by any screen; a dangling `rubricId` is reported by the notes panel and fixed
+with one dropdown. Only the first is an orphan.
+
+**Every store the flip touched gets a `refresh()` that goes PAST its load guard.** `load()`
+returns early for the id it is already showing, which is right for navigation and exactly
+wrong here. Each one also re-`accept`s its saver, or the next effect run writes the record
+straight back over the restore. `outcomes` and `items` accept `[]` — their savers queue an
+array of dirty records, and there is no single value to hand them.
+
+**Creating a course is `journal: false` along with deleting, importing and the sample.** Its
+undo would be a course deletion, which the journal already says it cannot do — and it
+happens on the home screen, where there is no change list to put it in. `vaultList.remove`
+calls `journal.forget(id)`, because entries naming records that no longer exist can only
+ever refuse.
+
+**Undo's own writes carry `journal: false`.** Otherwise each one adds an entry whose undo is
+the thing just undone, and the list grows a rung every time somebody changes their mind.
+Redo is not a second stack: the entry stays in place and its `state` flips.
 
 ### Store and UI invariants
 
@@ -393,10 +464,11 @@ change to a label, a shortcut, a confirmation or a default is also an edit to
 permanently` — because a guide that gestures vaguely is no use, and that precision is
 exactly what rots.
 
-**It says what is missing, on purpose.** No undo, no command palette, no way to move an
-item between collections. Someone deciding whether it is safe to click delete is the
-reader most in need of an accurate answer, and "the guide didn't mention it" reads as
-"there must be a way".
+**It says what is missing, on purpose.** No command palette, no promoting a part out of
+its group, no undo that survives a reload. Someone deciding whether it is safe to click
+delete is the reader most in need of an accurate answer, and "the guide didn't mention it"
+reads as "there must be a way". The three delete confirmations are part of the guide by
+this rule: they said "This cannot be undone" until stage 22 made that false.
 
 **It is static markup and prerenders**, so it lands in the precache and can be read with no
 network — which is when a locked-down work machine is most likely to need it.
@@ -672,9 +744,13 @@ screen said one thing and storage held another:
 - `remap.ts` remapped a criterion's descriptor keys and not its `levelPoints`, two lines below
   a comment warning about that exact hazard. Import silently reverted every points override.
   It was caught by opening the imported sample and reading 12 pt off a rubric worth 16.
+- The journal held its entries in plain `$state`, so every before-image came back out as a
+  Proxy and the first undo threw `DataCloneError`. The whole suite passed, and still would:
+  neither `fake-indexeddb` nor Node's `structuredClone` rejects a Svelte proxy.
 
-All three were silent, all three were invisible to `pnpm test`, and the first two destroyed
-typed text. Tests now pin each one — but the browser found them first, every time.
+All four were silent and all four were invisible to `pnpm test`. Tests pin the first three
+— the fourth cannot be pinned in this environment, which was checked rather than assumed.
+The browser found every one of them first.
 
 **Unregister the service worker before you verify.** A worker from the previous build serves
 the previous bundle, and working code looks broken — a whole debugging hour went to that in
@@ -714,7 +790,7 @@ what a term of real use surfaced: controls and focus (13), a loadable sample cou
 per-criterion rubric points (15), shared rubric tails (16), collection-kind capabilities and
 the task/item split (17), a Markdown toolbar (18), cloning a course (19), moving items between
 collections (20), a write funnel (21), the session journal and undo (22), and a command
-palette (23). **Stages 13 to 21 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
+palette (23). **Stages 13 to 22 are done.** `SCHEMA_VERSION` reached 3 at stage 16 and does
 not bump again — stage 17 added fields an older reader ignores to show a busier editor, which
 is exactly the case that is NOT a bump. That file carries the per-stage detail — schema shapes, the decisions already made,
 and what each stage is most likely to get wrong.
@@ -723,8 +799,7 @@ Deliberately not built yet:
 
 | | |
 | --- | --- |
-| Undo/redo | Brief §5. Cross-cutting; deferred until the item model settled, which it now has. |
-| Command palette | Brief §5, `Ctrl/Cmd+K`. Also cross-cutting. |
+| Command palette | Brief §5, `Ctrl/Cmd+K`. Cross-cutting; the last of the brief's UI expectations. |
 | Markdown sanitiser | Decided: DOMPurify with an allow-list. Not named by the brief; see `src/lib/markdown.ts`. |
 | Netlify deploy | The user's action, not the agent's. Verify the PWA locally instead. |
 | Update checks in a long-lived tab | The app only looks for a new build on load. A tab left open for a week will not notice one until it is reloaded. A throttled check on `visibilitychange` is the obvious addition; it was not asked for. |

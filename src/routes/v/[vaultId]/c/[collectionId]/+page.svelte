@@ -132,7 +132,7 @@
       !confirm(
         `Delete "${collection.title}" and its ${items.items.length} item${
           items.items.length === 1 ? '' : 's'
-        }? This cannot be undone.`
+        }? Undo can bring them back while this tab is open.`
       )
     )
       return;

@@ -68,8 +68,8 @@
       descendants.length > 0
         ? `Delete ${label} and the ${descendants.length} outcome${
             descendants.length === 1 ? '' : 's'
-          } beneath it? This cannot be undone.`
-        : `Delete ${label}? This cannot be undone.`;
+          } beneath it? Undo can bring the branch back while this tab is open.`
+        : `Delete ${label}? Undo can bring it back while this tab is open.`;
 
     // A branch is deleted as a unit — promoting orphans to the top level would scatter
     // it somewhere harder to reconstruct than retyping it.
